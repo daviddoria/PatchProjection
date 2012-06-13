@@ -9,8 +9,16 @@ include_directories(/media/portable/src/Eigen)
 FIND_PACKAGE(ITK REQUIRED)
 INCLUDE(${ITK_USE_FILE})
 
+if(NOT TARGET ITKHelpers)
+  add_subdirectory(ITKHelpers)
+endif()
+
+if(NOT TARGET EigenHelpers)
+  add_subdirectory(EigenHelpers)
+endif()
+
 add_executable(PatchProjectionExample Example.cpp)
-target_link_libraries(PatchProjectionExample ${ITK_LIBRARIES})
+target_link_libraries(PatchProjectionExample ${ITK_LIBRARIES} ITKHelpers EigenHelpers)
 
 # add_library(PatchProjection)
 # target_link_libraries(PatchProjection ${ITK_LIBRARIES})
