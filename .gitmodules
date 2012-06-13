@@ -1,0 +1,6 @@
+[submodule "EigenHelpers"]
+	path = EigenHelpers
+	url = https://github.com/daviddoria/EigenHelpers.git
+[submodule "ITKHelpers"]
+	path = ITKHelpers
+	url = https://github.com/daviddoria/ITKHelpers.git
