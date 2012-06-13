@@ -43,51 +43,6 @@ int main(int argc, char* argv[])
 
   ImageType* image = reader->GetOutput();
 
-  //////////// Compute the covariance matrix from a downsampled set of patches ////////////////////
-
-  // This shouldn't actually speed up that much, because the covariance matrix (and hence SVD)
-  // is based on the dimensionality of the vector, not the number of vectors used.
-  //unsigned int downsampleFactor = 10;
-  //unsigned int downsampleFactor = 5;
-  unsigned int downsampleFactor = patchRadius;
-  std::vector<itk::Index<2> > downsampledIndices =
-         ITKHelpers::GetDownsampledIndicesInRegion(image->GetLargestPossibleRegion(), downsampleFactor);
-  std::vector<itk::ImageRegion<2> > downsampledPatches =
-         ITKHelpers::GetValidPatchesCenteredAtIndices(downsampledIndices,
-                                                      image->GetLargestPossibleRegion(), patchRadius);
-
-  //std::vector<itk::ImageRegion<2> > allPatches =
-            //ITKHelpers::GetAllPatches(reader->GetOutput()->GetLargestPossibleRegion(), patchRadius);
-  std::cout << "There are " << downsampledPatches.size() << " downsampled patches." << std::endl;
-
-  EigenHelpers::VectorOfVectors vectorizedDownsampledPatches(downsampledPatches.size());
-
-  unsigned int numberOfHistogramBins = 10;
-
-  // Vectorized a subset of the patches
-  for(unsigned int i = 0; i < downsampledPatches.size(); ++i)
-  {
-    // Vectorize the RGB values
-    Eigen::VectorXf vectorized = PatchProjection::VectorizePatch(image, downsampledPatches[i]);
-
-    if(Helpers::ContainsNaN(vectorized))
-    {
-      throw std::runtime_error("vectorized contains NaNs!");
-    }
-
-    vectorizedDownsampledPatches[i] = vectorized;
-  }
-
-  std::cout << "There are " << vectorizedDownsampledPatches.size() << " vectorizedDownsampledPatches." << std::endl;
-
-  std::cout << "Each vector has " << vectorizedDownsampledPatches[0].size() << " components." << std::endl;
-
-  EigenHelpers::Standardize(vectorizedDownsampledPatches);
-  Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrix(vectorizedDownsampledPatches);
-  vectorizedDownsampledPatches.clear(); // Free this memory
-
-  std::cout << "Done computing covariance matrix." << std::endl;
-
   ////////// Project all of the patches using the covariance matrix constructed from the downsampled set /////
 
   std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
@@ -107,13 +62,22 @@ int main(int argc, char* argv[])
     vectorizedPatches[i] = vectorized;
   }
 
+  std::cout << "Done vectorizing " << allPatches.size() << " patches." << std::endl;
+
   // Standardize the vectorized patches, and store the meanVector and standardDeviationVector used to do so for later un-standardization
   Eigen::VectorXf meanVector;
   Eigen::VectorXf standardDeviationVector;
   EigenHelpers::Standardize(vectorizedPatches, meanVector, standardDeviationVector);
+  std::cout << "Done standardizing " << allPatches.size() << " patches." << std::endl;
 
-  std::cout << "Done vectorizing " << allPatches.size() << " patches." << std::endl;
+  // Timings are with 280116 patches (radius=7)
+  //Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixZeroMean(vectorizedPatches); //10m18.109s with printfs
+  //Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixZeroMean(vectorizedPatches); //9m5.624s without printfs
+  Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixZeroMeanFast(vectorizedPatches); // Only 0m34.123s ! 20x faster!
 
+  std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
+
+  exit(-1);
 //   EigenHelpers::VectorOfVectors projectedVectors =
 //           EigenHelpers::DimensionalityReduction(vectorizedPatches, covarianceMatrix, dimensions);
 
@@ -201,3 +165,50 @@ int main(int argc, char* argv[])
 
   return EXIT_SUCCESS;
 }
+
+#if 0
+void Downsample()
+{
+
+  //////////// Compute the covariance matrix from a downsampled set of patches ////////////////////
+
+  // This shouldn't actually speed up that much, because the covariance matrix (and hence SVD)
+  // is based on the dimensionality of the vector, not the number of vectors used.
+  //unsigned int downsampleFactor = 10;
+  //unsigned int downsampleFactor = 5;
+  unsigned int downsampleFactor = patchRadius;
+  std::vector<itk::Index<2> > downsampledIndices =
+         ITKHelpers::GetDownsampledIndicesInRegion(image->GetLargestPossibleRegion(), downsampleFactor);
+  std::vector<itk::ImageRegion<2> > downsampledPatches =
+         ITKHelpers::GetValidPatchesCenteredAtIndices(downsampledIndices,
+                                                      image->GetLargestPossibleRegion(), patchRadius);
+
+  //std::vector<itk::ImageRegion<2> > allPatches =
+            //ITKHelpers::GetAllPatches(reader->GetOutput()->GetLargestPossibleRegion(), patchRadius);
+  std::cout << "There are " << downsampledPatches.size() << " downsampled patches." << std::endl;
+
+  EigenHelpers::VectorOfVectors vectorizedDownsampledPatches(downsampledPatches.size());
+
+  unsigned int numberOfHistogramBins = 10;
+
+  // Vectorized a subset of the patches
+  for(unsigned int i = 0; i < downsampledPatches.size(); ++i)
+  {
+    // Vectorize the RGB values
+    Eigen::VectorXf vectorized = PatchProjection::VectorizePatch(image, downsampledPatches[i]);
+
+    if(Helpers::ContainsNaN(vectorized))
+    {
+      throw std::runtime_error("vectorized contains NaNs!");
+    }
+
+    vectorizedDownsampledPatches[i] = vectorized;
+  }
+
+  std::cout << "There are " << vectorizedDownsampledPatches.size() << " vectorizedDownsampledPatches." << std::endl;
+
+  std::cout << "Each vector has " << vectorizedDownsampledPatches[0].size() << " components." << std::endl;
+
+}
+
+#endif
