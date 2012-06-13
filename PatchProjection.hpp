@@ -28,7 +28,7 @@ Eigen::VectorXf PatchProjection::VectorizePatch(const TImage* const image, const
 }
 
 template <typename TImage>
-static void PatchProjection::UnvectorizePatch(const Eigen::VectorXf& vectorized, const TImage* const image, unsigned int channels)
+void PatchProjection::UnvectorizePatch(const Eigen::VectorXf& vectorized, const TImage* const image, unsigned int channels)
 {
   // This function assumes the patch is square
   image->SetNumberOfComponentsPerPixel(channels);

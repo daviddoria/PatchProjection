@@ -9,5 +9,8 @@ include_directories(/media/portable/src/Eigen)
 FIND_PACKAGE(ITK REQUIRED)
 INCLUDE(${ITK_USE_FILE})
 
+add_executable(PatchProjectionExample Example.cpp)
+target_link_libraries(PatchProjectionExample ${ITK_LIBRARIES})
+
 # add_library(PatchProjection)
 # target_link_libraries(PatchProjection ${ITK_LIBRARIES})
