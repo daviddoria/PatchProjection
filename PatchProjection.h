@@ -18,6 +18,9 @@ public:
   static void UnvectorizePatch(const Eigen::VectorXf& vectorized, const TImage* const image,
                                const unsigned int channels);
 
+private:
+  Eigen::VectorXf MeanVector;
+  Eigen::VectorXf StandardDeviationVector;
 };
 
 #include "PatchProjection.hpp"

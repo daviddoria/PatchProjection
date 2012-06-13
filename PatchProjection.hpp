@@ -5,6 +5,8 @@
 
 #include "itkImageRegionConstIterator.h"
 
+#include "ITKHelpers/ITKHelpers.h"
+
 template <typename TImage>
 Eigen::VectorXf PatchProjection::VectorizePatch(const TImage* const image, const itk::ImageRegion<2>& region)
 {

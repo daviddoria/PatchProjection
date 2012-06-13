@@ -1,12 +1,12 @@
 #include <iostream>
 #include <vector>
 
-// Submodules
-#include "ITKVTKHelpers/ITKHelpers/Helpers/Helpers.h"
-#include "ITKVTKHelpers/ITKHelpers/ITKHelpers.h"
-#include "EigenHelpers/EigenHelpers.h"
-
 #include "PatchProjection.h"
+
+// Submodules
+#include "PatchProjection/ITKHelpers/Helpers/Helpers.h"
+#include "PatchProjection/ITKHelpers/ITKHelpers.h"
+#include "PatchProjection/EigenHelpers/EigenHelpers.h"
 
 int main(int argc, char* argv[])
 {
@@ -25,13 +25,13 @@ int main(int argc, char* argv[])
 
   std::string inputFileName;
   unsigned int patchRadius;
-  unsigned int dimensions;
-  ss >> inputFileName >> patchRadius >> dimensions;
+  float percentOfSingularWeightToKeep;
+  ss >> inputFileName >> patchRadius >> percentOfSingularWeightToKeep;
 
   std::cout << "Arguments:" << std::endl
             << "Filename: " << inputFileName << std::endl
             << "patchRadius = " << patchRadius << std::endl
-            << "dimensions = " << dimensions << std::endl;
+            << "percentOfSingularWeightToKeep = " << percentOfSingularWeightToKeep << std::endl;
 
   //typedef itk::VectorImage<float, 2> ImageType;
   typedef itk::Image<itk::CovariantVector<float, 3>, 2> ImageType;
@@ -43,12 +43,6 @@ int main(int argc, char* argv[])
 
   ImageType* image = reader->GetOutput();
 
-  // Compute the gradient
-  typedef itk::Image<itk::CovariantVector<float, 2>, 2> GradientImageType;
-  GradientImageType::Pointer gradientImage = GradientImageType::New();
-  ITKHelpers::ComputeGradients(image, gradientImage.GetPointer());
-
-  ITKHelpers::WriteImage(gradientImage.GetPointer(), "gradients.mha");
   //////////// Compute the covariance matrix from a downsampled set of patches ////////////////////
 
   // This shouldn't actually speed up that much, because the covariance matrix (and hence SVD)
@@ -75,36 +69,18 @@ int main(int argc, char* argv[])
   {
     // Vectorize the RGB values
     Eigen::VectorXf vectorized = PatchProjection::VectorizePatch(image, downsampledPatches[i]);
+
     if(Helpers::ContainsNaN(vectorized))
     {
       throw std::runtime_error("vectorized contains NaNs!");
     }
-    // Append the histogram of gradients
-    std::vector<float> histogramOfGradients =
-            ITKHelpers::HistogramOfGradientsPrecomputed(image, downsampledPatches[i], numberOfHistogramBins);
-    if(Helpers::ContainsNaN(histogramOfGradients))
-    {
-      throw std::runtime_error("histogramOfGradients contains NaNs!");
-    }
-    Eigen::VectorXf hogEigen = EigenHelpers::STDVectorToEigenVector(histogramOfGradients);
-    Eigen::VectorXf concatenated(vectorized.size() + hogEigen.size());
-    concatenated << vectorized, hogEigen;
 
-    if(Helpers::ContainsNaN(concatenated))
-    {
-      throw std::runtime_error("concatenated contains NaNs!");
-    }
-    vectorizedDownsampledPatches[i] = concatenated;
+    vectorizedDownsampledPatches[i] = vectorized;
   }
 
   std::cout << "There are " << vectorizedDownsampledPatches.size() << " vectorizedDownsampledPatches." << std::endl;
 
   std::cout << "Each vector has " << vectorizedDownsampledPatches[0].size() << " components." << std::endl;
-
-  std::cout << "broken: " << vectorizedDownsampledPatches[0][254] << " " << vectorizedDownsampledPatches[0][255]
-            << " " << vectorizedDownsampledPatches[0][256] << std::endl;
-  std::cout << "broken: " << vectorizedDownsampledPatches[1][254] << " " << vectorizedDownsampledPatches[1][255]
-            << " " << vectorizedDownsampledPatches[1][256] << std::endl;
 
   EigenHelpers::Standardize(vectorizedDownsampledPatches);
   Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrix(vectorizedDownsampledPatches);
@@ -128,42 +104,26 @@ int main(int argc, char* argv[])
       throw std::runtime_error("vectorized contains NaNs!");
     }
 
-    // Append the histogram of gradients
-    std::vector<float> histogramOfGradients =
-            ITKHelpers::HistogramOfGradientsPrecomputed(image, allPatches[i], numberOfHistogramBins);
-    if(Helpers::ContainsNaN(histogramOfGradients))
-    {
-      throw std::runtime_error("histogramOfGradients contains NaNs!");
-    }
-
-    Eigen::VectorXf hogEigen = EigenHelpers::STDVectorToEigenVector(histogramOfGradients);
-    Eigen::VectorXf concatenated(vectorized.size() + hogEigen.size());
-    concatenated << vectorized, hogEigen;
-
-    if(Helpers::ContainsNaN(concatenated))
-    {
-      throw std::runtime_error("concatenated contains NaNs!");
-    }
-
-    vectorizedPatches[i] = concatenated;
+    vectorizedPatches[i] = vectorized;
   }
 
-  EigenHelpers::Standardize(vectorizedPatches);
+  // Standardize the vectorized patches, and store the meanVector and standardDeviationVector used to do so for later un-standardization
+  Eigen::VectorXf meanVector;
+  Eigen::VectorXf standardDeviationVector;
+  EigenHelpers::Standardize(vectorizedPatches, meanVector, standardDeviationVector);
 
   std::cout << "Done vectorizing " << allPatches.size() << " patches." << std::endl;
 
 //   EigenHelpers::VectorOfVectors projectedVectors =
 //           EigenHelpers::DimensionalityReduction(vectorizedPatches, covarianceMatrix, dimensions);
 
-  float singularWeightToKeep = 0.5f;
   EigenHelpers::VectorOfVectors projectedVectors =
-          EigenHelpers::DimensionalityReduction(vectorizedPatches, covarianceMatrix, singularWeightToKeep);
+          EigenHelpers::DimensionalityReduction(vectorizedPatches, covarianceMatrix, percentOfSingularWeightToKeep);
 
   std::cout << "There are " << projectedVectors.size() << " projectedVectors with "
             << projectedVectors[0].size() << " components each." << std::endl;
   covarianceMatrix.resize(0,0); // Free the memory
 
-  exit(-1);
   /////////////////////
   itk::CovariantVector<float, 3> zeroVector;
   zeroVector.Fill(0);
@@ -232,11 +192,11 @@ int main(int argc, char* argv[])
   } // end loop i
 
   std::stringstream ssLocation;
-  ssLocation << "Projected_Location_" << patchRadius << "_" << dimensions << ".mha";
+  ssLocation << "Projected_Location_" << patchRadius << "_" << percentOfSingularWeightToKeep << ".mha";
   ITKHelpers::WriteImage(locationField.GetPointer(), ssLocation.str());
 
   std::stringstream ssOffset;
-  ssOffset << "Projected_Offset_" << patchRadius << "_" << dimensions << ".mha";
+  ssOffset << "Projected_Offset_" << patchRadius << "_" << percentOfSingularWeightToKeep << ".mha";
   ITKHelpers::WriteImage(offsetField.GetPointer(), ssOffset.str());
 
   return EXIT_SUCCESS;
