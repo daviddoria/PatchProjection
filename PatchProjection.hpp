@@ -75,6 +75,7 @@ Eigen::MatrixXf PatchProjection::VectorizeImage(const TImage* const image, const
   itk::Size<2> imageSize = image->GetLargestPossibleRegion().GetSize();
   unsigned int numberOfPatches = (imageSize[0] - patchRadius*2) * (imageSize[1] - patchRadius*2);
 
+  std::cout << "Allocating feature matrix " << featureLength << " x " << numberOfPatches << std::endl;
   Eigen::MatrixXf featureMatrix(featureLength, numberOfPatches);
   std::cout << "Allocated feature matrix " << featureMatrix.rows() << " x " << featureMatrix.cols() << std::endl;
   itk::ImageRegionConstIterator<TImage> imageIterator(image, image->GetLargestPossibleRegion());
