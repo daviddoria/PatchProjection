@@ -43,44 +43,30 @@ int main(int argc, char* argv[])
 
   ImageType* image = reader->GetOutput();
 
-  ////////// Project all of the patches using the covariance matrix constructed from the downsampled set /////
-
   std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
+  Eigen::MatrixXf featureMatrix = PatchProjection::VectorizeImage(image, patchRadius);
 
-  EigenHelpers::VectorOfVectors vectorizedPatches(allPatches.size());
+  // Standardize the vectorized patches, and store the meanVector and standardDeviationVector
+  // used to do so for later un-standardization
+  Eigen::VectorXf meanVector = featureMatrix.rowwise().mean();
+  // Subtract the mean vector from every column
+  featureMatrix.colwise() -= meanVector;
 
-  // Vectorize all of the patches
-  for(unsigned int i = 0; i < allPatches.size(); ++i)
-  {
-    // Vectorize the RGB values
-    Eigen::VectorXf vectorized = PatchProjection::VectorizePatch(image, allPatches[i]);
-    if(Helpers::ContainsNaN(vectorized))
-    {
-      throw std::runtime_error("vectorized contains NaNs!");
-    }
+  Eigen::MatrixXf squaredMean0FeatureMatrix = featureMatrix.array().pow(2);
+  Eigen::VectorXf variance = squaredMean0FeatureMatrix.rowwise().mean();
+  Eigen::VectorXf standardDeviation = variance.array().sqrt();
 
-    vectorizedPatches[i] = vectorized;
-  }
+  // Divide by the standard devation
+  // featureMatrix.colwise() /= standardDeviation; // this does not yet work in Eigen
+  featureMatrix = standardDeviation.matrix().asDiagonal().inverse() * featureMatrix;
 
-  std::cout << "Done vectorizing " << allPatches.size() << " patches." << std::endl;
-
-  // Standardize the vectorized patches, and store the meanVector and standardDeviationVector used to do so for later un-standardization
-  Eigen::VectorXf meanVector;
-  Eigen::VectorXf standardDeviationVector;
-  EigenHelpers::Standardize(vectorizedPatches, meanVector, standardDeviationVector);
-  std::cout << "Done standardizing " << allPatches.size() << " patches." << std::endl;
-
-  // Timings are with 280116 patches (radius=7)
-  //Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixZeroMean(vectorizedPatches); //10m18.109s with printfs
-  //Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixZeroMean(vectorizedPatches); //9m5.624s without printfs
-  Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixZeroMeanFast(vectorizedPatches); // Only 0m34.123s ! 20x faster!
+  Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(featureMatrix);
 
   std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
 
-  exit(-1);
 //   EigenHelpers::VectorOfVectors projectedVectors =
 //           EigenHelpers::DimensionalityReduction(vectorizedPatches, covarianceMatrix, dimensions);
-
+/*
   EigenHelpers::VectorOfVectors projectedVectors =
           EigenHelpers::DimensionalityReduction(vectorizedPatches, covarianceMatrix, percentOfSingularWeightToKeep);
 
@@ -161,7 +147,7 @@ int main(int argc, char* argv[])
 
   std::stringstream ssOffset;
   ssOffset << "Projected_Offset_" << patchRadius << "_" << percentOfSingularWeightToKeep << ".mha";
-  ITKHelpers::WriteImage(offsetField.GetPointer(), ssOffset.str());
+  ITKHelpers::WriteImage(offsetField.GetPointer(), ssOffset.str());*/
 
   return EXIT_SUCCESS;
 }

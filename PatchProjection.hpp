@@ -58,4 +58,34 @@ void PatchProjection::UnvectorizePatch(const Eigen::VectorXf& vectorized, const 
     }
 }
 
+template <typename TImage>
+Eigen::MatrixXf PatchProjection::VectorizeImage(const TImage* const image, const unsigned int patchRadius)
+{
+  // The matrix constructed by this has each vectorized patch as a column.
+
+  unsigned int numberOfComponentsPerPixel = image->GetNumberOfComponentsPerPixel();
+  unsigned int pixelsPerPatch = (patchRadius * 2 + 1) * (patchRadius * 2 + 1);
+  unsigned int featureLength = numberOfComponentsPerPixel * pixelsPerPatch;
+
+  // This is how many patches fit entirely inside the image.
+  // For a 572x516 image and patch radius 7, we get 280116 patches.
+  itk::Size<2> imageSize = image->GetLargestPossibleRegion().GetSize();
+  unsigned int numberOfPatches = (imageSize[0] - patchRadius*2) * (imageSize[1] - patchRadius*2);
+
+  Eigen::MatrixXf featureMatrix(featureLength, numberOfPatches);
+
+  itk::ImageRegionConstIterator<TImage> imageIterator(image, image->GetLargestPossibleRegion());
+
+  std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
+
+  unsigned int patchCounter = 0;
+  while(!imageIterator.IsAtEnd())
+    {
+    featureMatrix.col(patchCounter) = VectorizePatch(image, allPatches[patchCounter]);
+    patchCounter++;
+    ++imageIterator;
+    }
+  return featureMatrix;
+}
+
 #endif

@@ -12,6 +12,9 @@ class PatchProjection
 public:
 
   template <typename TImage>
+  static Eigen::MatrixXf VectorizeImage(const TImage* const image, const unsigned int patchRadius);
+
+  template <typename TImage>
   static Eigen::VectorXf VectorizePatch(const TImage* const image, const itk::ImageRegion<2>& region);
 
   template <typename TImage>
