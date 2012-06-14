@@ -3,9 +3,12 @@
 
 #include "PatchProjection.h" // appease syntax parser
 
+// ITK
 #include "itkImageRegionConstIterator.h"
 
+// Submodules
 #include "ITKHelpers/ITKHelpers.h"
+#include "EigenHelpers/EigenHelpers.h"
 
 template <typename TImage>
 Eigen::VectorXf PatchProjection::VectorizePatch(const TImage* const image, const itk::ImageRegion<2>& region)
@@ -84,6 +87,39 @@ Eigen::MatrixXf PatchProjection::VectorizeImage(const TImage* const image, const
   }
 
   return featureMatrix;
+}
+
+template <typename TImage>
+Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix(const TImage* const image, const unsigned int patchRadius)
+{
+    std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
+  Eigen::MatrixXf featureMatrix = PatchProjection::VectorizeImage(image, patchRadius);
+
+  // Standardize the vectorized patches, and store the meanVector and standardDeviationVector
+  // used to do so for later un-standardization
+  Eigen::VectorXf meanVector = featureMatrix.rowwise().mean();
+  // Subtract the mean vector from every column
+  featureMatrix.colwise() -= meanVector;
+
+  Eigen::MatrixXf squaredMean0FeatureMatrix = featureMatrix.array().pow(2);
+  Eigen::VectorXf variance = squaredMean0FeatureMatrix.rowwise().mean();
+  Eigen::VectorXf standardDeviation = variance.array().sqrt();
+
+  // Divide by the standard devation
+  // featureMatrix.colwise() /= standardDeviation; // this does not yet work in Eigen
+  featureMatrix = standardDeviation.matrix().asDiagonal().inverse() * featureMatrix;
+
+  Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(featureMatrix);
+
+  std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
+
+  // Use the first vector for testing
+  Eigen::VectorXf v = featureMatrix.col(0);
+
+  typedef Eigen::JacobiSVD<Eigen::MatrixXf> SVDType;
+  //SVDType svd(covarianceMatrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  SVDType svd(covarianceMatrix, Eigen::ComputeFullU);
+  return svd.matrixU();
 }
 
 #endif

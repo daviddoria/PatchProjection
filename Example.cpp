@@ -48,48 +48,27 @@ int main(int argc, char* argv[])
 
   ImageType* image = reader->GetOutput();
 
-  std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
-  Eigen::MatrixXf featureMatrix = PatchProjection::VectorizeImage(image, patchRadius);
+  Eigen::MatrixXf projectionMatrix = PatchProjection::ComputeProjectionMatrix(image, patchRadius);
 
-  // Standardize the vectorized patches, and store the meanVector and standardDeviationVector
-  // used to do so for later un-standardization
-  Eigen::VectorXf meanVector = featureMatrix.rowwise().mean();
-  // Subtract the mean vector from every column
-  featureMatrix.colwise() -= meanVector;
-
-  Eigen::MatrixXf squaredMean0FeatureMatrix = featureMatrix.array().pow(2);
-  Eigen::VectorXf variance = squaredMean0FeatureMatrix.rowwise().mean();
-  Eigen::VectorXf standardDeviation = variance.array().sqrt();
-
-  // Divide by the standard devation
-  // featureMatrix.colwise() /= standardDeviation; // this does not yet work in Eigen
-  featureMatrix = standardDeviation.matrix().asDiagonal().inverse() * featureMatrix;
-
-  Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(featureMatrix);
-
-  std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
-
-  // Use the first vector for testing
-  Eigen::VectorXf v = featureMatrix.col(0);
-
-  typedef Eigen::JacobiSVD<Eigen::MatrixXf> SVDType;
-  //SVDType svd(covarianceMatrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  SVDType svd(covarianceMatrix, Eigen::ComputeFullU);
+  itk::Index<2> corner = {{0,0}};
+  itk::Size<2> size = {{patchRadius*2 + 1, patchRadius*2 + 1}};
+  itk::ImageRegion<2> cornerRegion(corner, size);
+  Eigen::VectorXf patch = PatchProjection::VectorizePatch(image, cornerRegion);
 
   //unsigned int numberOfColumnsToKeep = 10;
-  unsigned int numberOfColumnsToKeep = featureMatrix.rows(); // for now, keep the entire amount of information
+  unsigned int numberOfColumnsToKeep = projectionMatrix.rows(); // for now, keep the entire amount of information
 
   Eigen::VectorXf projectedVector =
-          EigenHelpers::DimensionalityReduction(v, svd.matrixU(), numberOfColumnsToKeep);
+          EigenHelpers::DimensionalityReduction(patch, projectionMatrix, numberOfColumnsToKeep);
 
   // This is the matrix that produced the projection:
-  Eigen::MatrixXf truncatedU = EigenHelpers::TruncateColumns(svd.matrixU(), numberOfColumnsToKeep);
+  Eigen::MatrixXf truncatedU = EigenHelpers::TruncateColumns(projectionMatrix, numberOfColumnsToKeep);
 
   Eigen::MatrixXf inverseProjection = EigenHelpers::PseudoInverse(truncatedU);
 
   Eigen::VectorXf unprojectedVector = inverseProjection * projectedVector;
 
-  std::cout << "original: " << v << std::endl;
+  std::cout << "original: " << patch << std::endl;
   std::cout << "unprojectedVector: " << unprojectedVector << std::endl;
 
   {
