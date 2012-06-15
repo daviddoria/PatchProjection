@@ -162,7 +162,7 @@ Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix(const TImage* const ima
   //   SVDType svd(covarianceMatrix, Eigen::ComputeFullU);
   //   return svd.matrixU();
 
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eigensolver(covarianceMatrix);
+  Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eigensolver(covarianceMatrix);
   if (eigensolver.info() != Eigen::Success)
   {
     throw std::runtime_error("Eigen decomposition of the covariance matrix failed!");
