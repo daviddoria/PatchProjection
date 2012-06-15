@@ -38,8 +38,11 @@ void PatchProjection::UnvectorizePatch(const Eigen::VectorXf& vectorized, TImage
   // This function assumes the patch is square
   image->SetNumberOfComponentsPerPixel(channels);
 
+  unsigned int numberOfPixels = vectorized.size()/channels;
+  unsigned int sideLength = sqrt(numberOfPixels);
+
   itk::Size<2> size;
-  size.Fill(vectorized.size()/channels);
+  size.Fill(sideLength);
 
   itk::ImageRegion<2> region = ITKHelpers::CornerRegion(size);
   image->SetRegions(region);
@@ -91,7 +94,8 @@ Eigen::MatrixXf PatchProjection::VectorizeImage(const TImage* const image, const
 }
 
 template <typename TImage>
-Eigen::MatrixXf PatchProjection::GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius)
+Eigen::MatrixXf PatchProjection::GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
+                                                          Eigen::VectorXf& meanVector, Eigen::VectorXf& standardDeviationVector)
 {
   unsigned int numberOfComponentsPerPixel = image->GetNumberOfComponentsPerPixel();
   unsigned int pixelsPerPatch = (patchRadius * 2 + 1) * (patchRadius * 2 + 1);
@@ -100,7 +104,21 @@ Eigen::MatrixXf PatchProjection::GetDummyProjectionMatrix(const TImage* const im
   Eigen::MatrixXf dummyProjectionMatrix(featureLength, featureLength);
   dummyProjectionMatrix.setIdentity();
 
+  meanVector.resize(featureLength);
+  meanVector.setZero();
+
+  standardDeviationVector.resize(featureLength);
+  standardDeviationVector.setOnes();
+
   return dummyProjectionMatrix;
+}
+
+template <typename TImage>
+Eigen::MatrixXf PatchProjection::GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius)
+{
+  Eigen::VectorXf meanVector;
+  Eigen::VectorXf standardDeviationVector;
+  return GetDummyProjectionMatrix(image, patchRadius, meanVector, standardDeviationVector);
 }
 
 template <typename TImage>
@@ -137,13 +155,20 @@ Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix(const TImage* const ima
 
   std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
 
-  // Use the first vector for testing
-  Eigen::VectorXf v = featureMatrix.col(0);
+  // It is unnecessary (and wrong?) to compute the SVD of the covariance matrix. We could have computed the SVD of the original matrix,
+  // or we can just use the eigen decomposition of the covariance matrix.
+  //   typedef Eigen::JacobiSVD<Eigen::MatrixXf> SVDType;
+  //   //SVDType svd(covarianceMatrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  //   SVDType svd(covarianceMatrix, Eigen::ComputeFullU);
+  //   return svd.matrixU();
 
-  typedef Eigen::JacobiSVD<Eigen::MatrixXf> SVDType;
-  //SVDType svd(covarianceMatrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  SVDType svd(covarianceMatrix, Eigen::ComputeFullU);
-  return svd.matrixU();
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eigensolver(covarianceMatrix);
+  if (eigensolver.info() != Eigen::Success)
+  {
+    throw std::runtime_error("Eigen decomposition of the covariance matrix failed!");
+  }
+
+  return eigensolver.eigenvectors();
 }
 
 #endif

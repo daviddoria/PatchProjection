@@ -37,6 +37,10 @@ public:
   /** This function exists to return a matrix of the correct dimensions to be used for testing. */
   template <typename TImage>
   static Eigen::MatrixXf GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius);
+
+  template <typename TImage>
+  static Eigen::MatrixXf GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
+                                                  Eigen::VectorXf& meanVector, Eigen::VectorXf& standardDeviationVector);
 };
 
 #include "PatchProjection.hpp"
