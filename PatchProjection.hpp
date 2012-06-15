@@ -33,7 +33,7 @@ Eigen::VectorXf PatchProjection::VectorizePatch(const TImage* const image, const
 }
 
 template <typename TImage>
-void PatchProjection::UnvectorizePatch(const Eigen::VectorXf& vectorized, const TImage* const image, unsigned int channels)
+void PatchProjection::UnvectorizePatch(const Eigen::VectorXf& vectorized, TImage* const image, const unsigned int channels)
 {
   // This function assumes the patch is square
   image->SetNumberOfComponentsPerPixel(channels);
@@ -91,24 +91,47 @@ Eigen::MatrixXf PatchProjection::VectorizeImage(const TImage* const image, const
 }
 
 template <typename TImage>
+Eigen::MatrixXf PatchProjection::GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius)
+{
+  unsigned int numberOfComponentsPerPixel = image->GetNumberOfComponentsPerPixel();
+  unsigned int pixelsPerPatch = (patchRadius * 2 + 1) * (patchRadius * 2 + 1);
+  unsigned int featureLength = numberOfComponentsPerPixel * pixelsPerPatch;
+
+  Eigen::MatrixXf dummyProjectionMatrix(featureLength, featureLength);
+  dummyProjectionMatrix.setIdentity();
+
+  return dummyProjectionMatrix;
+}
+
+template <typename TImage>
 Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix(const TImage* const image, const unsigned int patchRadius)
 {
-    std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
+  Eigen::VectorXf meanVector;
+  Eigen::VectorXf standardDeviationVector;
+  return ComputeProjectionMatrix(image, patchRadius, meanVector, standardDeviationVector);
+}
+
+template <typename TImage>
+Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
+                                                         Eigen::VectorXf& meanVector, Eigen::VectorXf& standardDeviationVector)
+{
+  std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
   Eigen::MatrixXf featureMatrix = PatchProjection::VectorizeImage(image, patchRadius);
 
   // Standardize the vectorized patches, and store the meanVector and standardDeviationVector
   // used to do so for later un-standardization
-  Eigen::VectorXf meanVector = featureMatrix.rowwise().mean();
+  meanVector = featureMatrix.rowwise().mean();
   // Subtract the mean vector from every column
   featureMatrix.colwise() -= meanVector;
 
-  Eigen::MatrixXf squaredMean0FeatureMatrix = featureMatrix.array().pow(2);
+  // The variance is computed as 1/N \sum (x_i - x_mean)^2 . Since we have zero mean, this is just the square of the components
+  Eigen::MatrixXf squaredMean0FeatureMatrix = featureMatrix.array().pow(2); // Square all components
   Eigen::VectorXf variance = squaredMean0FeatureMatrix.rowwise().mean();
-  Eigen::VectorXf standardDeviation = variance.array().sqrt();
+  standardDeviationVector = variance.array().sqrt(); // Take the square root of all components
 
   // Divide by the standard devation
   // featureMatrix.colwise() /= standardDeviation; // this does not yet work in Eigen
-  featureMatrix = standardDeviation.matrix().asDiagonal().inverse() * featureMatrix;
+  featureMatrix = standardDeviationVector.matrix().asDiagonal().inverse() * featureMatrix;
 
   Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(featureMatrix);
 
