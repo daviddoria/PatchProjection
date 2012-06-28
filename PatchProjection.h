@@ -27,7 +27,19 @@ public:
   /** Vectorize the entire image, construct a feature matrix, perform an SVD on the covariance matrix of the feature matrix,
     * and return the 'U' matrix from the SVD. */
   template <typename TImage>
-  static Eigen::MatrixXf ComputeProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
+  static Eigen::MatrixXf ComputeProjectionMatrix_CovarianceEigen(const TImage* const image, const unsigned int patchRadius,
+                                                 Eigen::VectorXf& meanVector, Eigen::VectorXf& standardDeviationVector);
+
+  /** Vectorize the entire image, construct a feature matrix, perform an SVD on the covariance matrix of the feature matrix,
+    * and return the 'U' matrix from the SVD. */
+  template <typename TImage>
+  static Eigen::MatrixXf ComputeProjectionMatrix_CovarianceEigen(const TImage* const image, const unsigned int patchRadius,
+                                                 Eigen::VectorXf& meanVector);
+
+  /** Vectorize the entire image, construct a feature matrix, perform an SVD on the covariance matrix of the feature matrix,
+    * and return the 'U' matrix from the SVD. */
+  template <typename TImage>
+  static Eigen::MatrixXf ComputeProjectionMatrix_SVD(const TImage* const image, const unsigned int patchRadius,
                                                  Eigen::VectorXf& meanVector, Eigen::VectorXf& standardDeviationVector);
 
   /** If the meanVector and standardDeviationVector are not needed in the caller, this overload provides a cleaner interface. */

@@ -9,6 +9,9 @@ include_directories(/media/portable/src/Eigen)
 FIND_PACKAGE(ITK REQUIRED)
 INCLUDE(${ITK_USE_FILE})
 
+FIND_PACKAGE(VTK REQUIRED)
+INCLUDE(${VTK_USE_FILE})
+
 if(NOT TARGET ITKHelpers)
   add_subdirectory(ITKHelpers)
 endif()

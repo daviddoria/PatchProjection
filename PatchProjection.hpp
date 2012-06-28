@@ -51,17 +51,27 @@ void PatchProjection::UnvectorizePatch(const Eigen::VectorXf& vectorized, TImage
   itk::ImageRegionIterator<TImage> imageIterator(image, region);
   unsigned int pixelCounter = 0;
   while(!imageIterator.IsAtEnd())
-    {
+  {
     typename TImage::PixelType pixel(channels);
 
     for(unsigned int component = 0; component < channels; ++component)
+    {
+      float value = vectorized[channels * pixelCounter + component];
+      // Make sure that the float value is within the range of the image pixel type. For example, we can't
+      // convert -23.4 to uchar.
+      if(value < std::numeric_limits<typename TImage::InternalPixelType>::min() ||
+         value > std::numeric_limits<typename TImage::InternalPixelType>::max())
       {
-      pixel[component] = vectorized[channels * pixelCounter + component];
+        std::stringstream ss;
+        ss << "Value " << value << " cannot be converted to a component of the type of the image pixels";
+        throw std::runtime_error(ss.str());
       }
+      pixel[component] = value;
+    } // end for
     imageIterator.Set(pixel);
     pixelCounter++;
     ++imageIterator;
-    }
+  } // end while
 }
 
 template <typename TImage>
@@ -126,11 +136,45 @@ Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix(const TImage* const ima
 {
   Eigen::VectorXf meanVector;
   Eigen::VectorXf standardDeviationVector;
-  return ComputeProjectionMatrix(image, patchRadius, meanVector, standardDeviationVector);
+  return ComputeProjectionMatrix_CovarianceEigen(image, patchRadius, meanVector, standardDeviationVector);
 }
 
 template <typename TImage>
-Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
+Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix_CovarianceEigen(const TImage* const image, const unsigned int patchRadius,
+                                                         Eigen::VectorXf& meanVector, Eigen::VectorXf& standardDeviationVector)
+{
+  throw std::runtime_error("Not yet implemented.");
+}
+
+template <typename TImage>
+Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix_CovarianceEigen(const TImage* const image, const unsigned int patchRadius,
+                                                         Eigen::VectorXf& meanVector)
+{
+  std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
+  Eigen::MatrixXf featureMatrix = PatchProjection::VectorizeImage(image, patchRadius);
+
+  // Standardize the vectorized patches, and store the meanVector
+  // used to do so for later un-standardization
+  meanVector = featureMatrix.rowwise().mean();
+  // Subtract the mean vector from every column
+  featureMatrix.colwise() -= meanVector;
+
+  Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(featureMatrix);
+
+  std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
+
+  Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eigensolver(covarianceMatrix);
+  if (eigensolver.info() != Eigen::Success)
+  {
+    throw std::runtime_error("Eigen decomposition of the covariance matrix failed!");
+  }
+
+  return eigensolver.eigenvectors();
+}
+
+
+template <typename TImage>
+Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix_SVD(const TImage* const image, const unsigned int patchRadius,
                                                          Eigen::VectorXf& meanVector, Eigen::VectorXf& standardDeviationVector)
 {
   std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
@@ -151,24 +195,10 @@ Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix(const TImage* const ima
   // featureMatrix.colwise() /= standardDeviation; // this does not yet work in Eigen
   featureMatrix = standardDeviationVector.matrix().asDiagonal().inverse() * featureMatrix;
 
-  Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(featureMatrix);
-
-  std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
-
-  // It is unnecessary (and wrong?) to compute the SVD of the covariance matrix. We could have computed the SVD of the original matrix,
-  // or we can just use the eigen decomposition of the covariance matrix.
-  //   typedef Eigen::JacobiSVD<Eigen::MatrixXf> SVDType;
-  //   //SVDType svd(covarianceMatrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  //   SVDType svd(covarianceMatrix, Eigen::ComputeFullU);
-  //   return svd.matrixU();
-
-  Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eigensolver(covarianceMatrix);
-  if (eigensolver.info() != Eigen::Success)
-  {
-    throw std::runtime_error("Eigen decomposition of the covariance matrix failed!");
-  }
-
-  return eigensolver.eigenvectors();
+  typedef Eigen::JacobiSVD<Eigen::MatrixXf> SVDType;
+  //SVDType svd(featureMatrix, Eigen::ComputeFullU);
+  SVDType svd(featureMatrix, Eigen::ComputeThinU);
+  return svd.matrixU();
 }
 
 #endif
