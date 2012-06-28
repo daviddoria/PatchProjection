@@ -9,6 +9,7 @@
 // Submodules
 #include "ITKHelpers/ITKHelpers.h"
 #include "EigenHelpers/EigenHelpers.h"
+#include "ITKHelpers/Helpers/ParallelSort.h"
 
 template <typename TImage>
 Eigen::VectorXf PatchProjection::VectorizePatch(const TImage* const image, const itk::ImageRegion<2>& region)
@@ -63,8 +64,9 @@ void PatchProjection::UnvectorizePatch(const Eigen::VectorXf& vectorized, TImage
          value > std::numeric_limits<typename TImage::InternalPixelType>::max())
       {
         std::stringstream ss;
-        ss << "Value " << value << " cannot be converted to a component of the type of the image pixels";
-        throw std::runtime_error(ss.str());
+        ss << "PatchProjection::UnvectorizePatch: Value " << value
+           << " cannot be converted to a component of the type of the image pixels";
+        //throw std::runtime_error(ss.str());
       }
       pixel[component] = value;
     } // end for
@@ -169,7 +171,25 @@ Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix_CovarianceEigen(const T
     throw std::runtime_error("Eigen decomposition of the covariance matrix failed!");
   }
 
-  return eigensolver.eigenvectors();
+  // Sort eigenvectors by increasing eigenvalue magnitude.
+
+  std::vector<float> eigenvalueMagnitudes(eigensolver.eigenvalues().size());
+  for(int i = 0; i < eigensolver.eigenvalues().size(); ++i)
+  {
+    eigenvalueMagnitudes[i] = fabs(eigensolver.eigenvalues()[i]);
+  }
+
+  // Sort the eigenvalues from largest magnitude to smallest
+  std::vector<ParallelSort::IndexedValue<float> > sorted = ParallelSort::ParallelSortDescending<float>(eigenvalueMagnitudes);
+
+  // Reorder the eigenvectors
+  Eigen::MatrixXf sortedEigenVectors(eigensolver.eigenvectors().rows(), eigensolver.eigenvectors().cols());
+  for(size_t i = 0; i < sorted.size(); ++i)
+  {
+    sortedEigenVectors.col(i) = eigensolver.eigenvectors().col(sorted[i].index);
+  }
+
+  return sortedEigenVectors;
 }
 
 
