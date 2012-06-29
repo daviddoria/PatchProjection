@@ -11,11 +11,12 @@
 #include "EigenHelpers/EigenHelpers.h"
 #include "ITKHelpers/Helpers/ParallelSort.h"
 
+template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-Eigen::VectorXf PatchProjection::VectorizePatch(const TImage* const image, const itk::ImageRegion<2>& region)
+TVectorType PatchProjection<TMatrixType, TVectorType>::VectorizePatch(const TImage* const image, const itk::ImageRegion<2>& region)
 {
-  Eigen::VectorXf vectorized =
-       Eigen::VectorXf::Zero(image->GetNumberOfComponentsPerPixel() * region.GetNumberOfPixels());
+  TVectorType vectorized =
+       TVectorType::Zero(image->GetNumberOfComponentsPerPixel() * region.GetNumberOfPixels());
 
   itk::ImageRegionConstIterator<TImage> imageIterator(image, region);
 
@@ -33,8 +34,10 @@ Eigen::VectorXf PatchProjection::VectorizePatch(const TImage* const image, const
   return vectorized;
 }
 
+template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-void PatchProjection::UnvectorizePatch(const Eigen::VectorXf& vectorized, TImage* const image, const unsigned int channels)
+void PatchProjection<TMatrixType, TVectorType>::UnvectorizePatch(const TVectorType& vectorized, TImage* const image,
+                                                                 const unsigned int channels)
 {
   // This function assumes the patch is square
   image->SetNumberOfComponentsPerPixel(channels);
@@ -76,8 +79,9 @@ void PatchProjection::UnvectorizePatch(const Eigen::VectorXf& vectorized, TImage
   } // end while
 }
 
+template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-Eigen::MatrixXf PatchProjection::VectorizeImage(const TImage* const image, const unsigned int patchRadius)
+TMatrixType PatchProjection<TMatrixType, TVectorType>::VectorizeImage(const TImage* const image, const unsigned int patchRadius)
 {
   // The matrix constructed by this has each vectorized patch as a column.
 
@@ -91,7 +95,7 @@ Eigen::MatrixXf PatchProjection::VectorizeImage(const TImage* const image, const
   unsigned int numberOfPatches = (imageSize[0] - patchRadius*2) * (imageSize[1] - patchRadius*2);
 
   std::cout << "Allocating feature matrix " << featureLength << " x " << numberOfPatches << std::endl;
-  Eigen::MatrixXf featureMatrix(featureLength, numberOfPatches);
+  TMatrixType featureMatrix(featureLength, numberOfPatches);
   std::cout << "Allocated feature matrix " << featureMatrix.rows() << " x " << featureMatrix.cols() << std::endl;
   itk::ImageRegionConstIterator<TImage> imageIterator(image, image->GetLargestPossibleRegion());
 
@@ -105,15 +109,16 @@ Eigen::MatrixXf PatchProjection::VectorizeImage(const TImage* const image, const
   return featureMatrix;
 }
 
+template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-Eigen::MatrixXf PatchProjection::GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
-                                                          Eigen::VectorXf& meanVector, Eigen::VectorXf& standardDeviationVector)
+TMatrixType PatchProjection<TMatrixType, TVectorType>::GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
+                                                          TVectorType& meanVector, TVectorType& standardDeviationVector)
 {
   unsigned int numberOfComponentsPerPixel = image->GetNumberOfComponentsPerPixel();
   unsigned int pixelsPerPatch = (patchRadius * 2 + 1) * (patchRadius * 2 + 1);
   unsigned int featureLength = numberOfComponentsPerPixel * pixelsPerPatch;
 
-  Eigen::MatrixXf dummyProjectionMatrix(featureLength, featureLength);
+  TMatrixType dummyProjectionMatrix(featureLength, featureLength);
   dummyProjectionMatrix.setIdentity();
 
   meanVector.resize(featureLength);
@@ -125,35 +130,40 @@ Eigen::MatrixXf PatchProjection::GetDummyProjectionMatrix(const TImage* const im
   return dummyProjectionMatrix;
 }
 
+template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-Eigen::MatrixXf PatchProjection::GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius)
+TMatrixType PatchProjection<TMatrixType, TVectorType>::GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius)
 {
-  Eigen::VectorXf meanVector;
-  Eigen::VectorXf standardDeviationVector;
+  TVectorType meanVector;
+  TVectorType standardDeviationVector;
   return GetDummyProjectionMatrix(image, patchRadius, meanVector, standardDeviationVector);
 }
 
+template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix(const TImage* const image, const unsigned int patchRadius)
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix(const TImage* const image, const unsigned int patchRadius)
 {
-  Eigen::VectorXf meanVector;
-  Eigen::VectorXf standardDeviationVector;
+  TVectorType meanVector;
+  TVectorType standardDeviationVector;
   return ComputeProjectionMatrix_CovarianceEigen(image, patchRadius, meanVector, standardDeviationVector);
 }
 
+template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix_CovarianceEigen(const TImage* const image, const unsigned int patchRadius,
-                                                         Eigen::VectorXf& meanVector, Eigen::VectorXf& standardDeviationVector)
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_CovarianceEigen(const TImage* const image, const unsigned int patchRadius,
+                                                         TVectorType& meanVector, TVectorType& standardDeviationVector)
 {
   throw std::runtime_error("Not yet implemented.");
 }
 
+template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix_CovarianceEigen(const TImage* const image, const unsigned int patchRadius,
-                                                         Eigen::VectorXf& meanVector)
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_CovarianceEigen(const TImage* const image,
+                                                                                               const unsigned int patchRadius,
+                                                                                               TVectorType& meanVector)
 {
   std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
-  Eigen::MatrixXf featureMatrix = PatchProjection::VectorizeImage(image, patchRadius);
+  TMatrixType featureMatrix = PatchProjection::VectorizeImage(image, patchRadius);
 
   // Standardize the vectorized patches, and store the meanVector
   // used to do so for later un-standardization
@@ -161,11 +171,11 @@ Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix_CovarianceEigen(const T
   // Subtract the mean vector from every column
   featureMatrix.colwise() -= meanVector;
 
-  Eigen::MatrixXf covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(featureMatrix);
+  TMatrixType covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(featureMatrix);
 
   std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
 
-  Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eigensolver(covarianceMatrix);
+  Eigen::SelfAdjointEigenSolver<TMatrixType> eigensolver(covarianceMatrix);
   if (eigensolver.info() != Eigen::Success)
   {
     throw std::runtime_error("Eigen decomposition of the covariance matrix failed!");
@@ -183,7 +193,7 @@ Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix_CovarianceEigen(const T
   std::vector<ParallelSort::IndexedValue<float> > sorted = ParallelSort::ParallelSortDescending<float>(eigenvalueMagnitudes);
 
   // Reorder the eigenvectors
-  Eigen::MatrixXf sortedEigenVectors(eigensolver.eigenvectors().rows(), eigensolver.eigenvectors().cols());
+  TMatrixType sortedEigenVectors(eigensolver.eigenvectors().rows(), eigensolver.eigenvectors().cols());
   for(size_t i = 0; i < sorted.size(); ++i)
   {
     sortedEigenVectors.col(i) = eigensolver.eigenvectors().col(sorted[i].index);
@@ -192,13 +202,13 @@ Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix_CovarianceEigen(const T
   return sortedEigenVectors;
 }
 
-
+template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix_SVD(const TImage* const image, const unsigned int patchRadius,
-                                                         Eigen::VectorXf& meanVector, Eigen::VectorXf& standardDeviationVector)
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_SVD(const TImage* const image, const unsigned int patchRadius,
+                                                         TVectorType& meanVector, TVectorType& standardDeviationVector)
 {
   std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
-  Eigen::MatrixXf featureMatrix = PatchProjection::VectorizeImage(image, patchRadius);
+  TMatrixType featureMatrix = PatchProjection::VectorizeImage(image, patchRadius);
 
   // Standardize the vectorized patches, and store the meanVector and standardDeviationVector
   // used to do so for later un-standardization
@@ -207,15 +217,15 @@ Eigen::MatrixXf PatchProjection::ComputeProjectionMatrix_SVD(const TImage* const
   featureMatrix.colwise() -= meanVector;
 
   // The variance is computed as 1/N \sum (x_i - x_mean)^2 . Since we have zero mean, this is just the square of the components
-  Eigen::MatrixXf squaredMean0FeatureMatrix = featureMatrix.array().pow(2); // Square all components
-  Eigen::VectorXf variance = squaredMean0FeatureMatrix.rowwise().mean();
+  TMatrixType squaredMean0FeatureMatrix = featureMatrix.array().pow(2); // Square all components
+  TVectorType variance = squaredMean0FeatureMatrix.rowwise().mean();
   standardDeviationVector = variance.array().sqrt(); // Take the square root of all components
 
   // Divide by the standard devation
   // featureMatrix.colwise() /= standardDeviation; // this does not yet work in Eigen
   featureMatrix = standardDeviationVector.matrix().asDiagonal().inverse() * featureMatrix;
 
-  typedef Eigen::JacobiSVD<Eigen::MatrixXf> SVDType;
+  typedef Eigen::JacobiSVD<TMatrixType> SVDType;
   //SVDType svd(featureMatrix, Eigen::ComputeFullU);
   SVDType svd(featureMatrix, Eigen::ComputeThinU);
   return svd.matrixU();

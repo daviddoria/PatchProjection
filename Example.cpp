@@ -48,12 +48,12 @@ int main(int argc, char* argv[])
 
   ImageType* image = reader->GetOutput();
 
-  Eigen::MatrixXf projectionMatrix = PatchProjection::ComputeProjectionMatrix(image, patchRadius);
+  Eigen::MatrixXf projectionMatrix = PatchProjection<Eigen::MatrixXf, Eigen::VectorXf>::ComputeProjectionMatrix(image, patchRadius);
 
   itk::Index<2> corner = {{0,0}};
   itk::Size<2> size = {{patchRadius*2 + 1, patchRadius*2 + 1}};
   itk::ImageRegion<2> cornerRegion(corner, size);
-  Eigen::VectorXf patch = PatchProjection::VectorizePatch(image, cornerRegion);
+  Eigen::VectorXf patch = PatchProjection<Eigen::MatrixXf, Eigen::VectorXf>::VectorizePatch(image, cornerRegion);
 
   //unsigned int numberOfColumnsToKeep = 10;
   unsigned int numberOfColumnsToKeep = projectionMatrix.rows(); // for now, keep the entire amount of information
