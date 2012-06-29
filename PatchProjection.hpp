@@ -60,8 +60,8 @@ void PatchProjection<TMatrixType, TVectorType>::UnvectorizePatch(const TVectorTy
 
     for(unsigned int component = 0; component < channels; ++component)
     {
-      float value = vectorized[channels * pixelCounter + component];
-      // Make sure that the float value is within the range of the image pixel type. For example, we can't
+      typename TVectorType::Scalar value = vectorized[channels * pixelCounter + component];
+      // Make sure that the scalar value is within the range of the image pixel type. For example, we can't
       // convert -23.4 to uchar.
       if(value < std::numeric_limits<typename TImage::InternalPixelType>::min() ||
          value > std::numeric_limits<typename TImage::InternalPixelType>::max())
@@ -168,6 +168,7 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_C
   // Standardize the vectorized patches, and store the meanVector
   // used to do so for later un-standardization
   meanVector = featureMatrix.rowwise().mean();
+
   // Subtract the mean vector from every column
   featureMatrix.colwise() -= meanVector;
 

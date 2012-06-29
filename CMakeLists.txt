@@ -20,8 +20,12 @@ if(NOT TARGET EigenHelpers)
   add_subdirectory(EigenHelpers)
 endif()
 
-add_executable(PatchProjectionExample Example.cpp)
-target_link_libraries(PatchProjectionExample ${ITK_LIBRARIES} ITKHelpers EigenHelpers)
+SET(PatchProjection_BuildExample OFF CACHE BOOL "PatchProjection_BuildExample")
+if(PatchProjection_BuildExample)
+  add_executable(PatchProjectionExample Example.cpp)
+  target_link_libraries(PatchProjectionExample ${ITK_LIBRARIES} ITKHelpers EigenHelpers)
+endif()
+
 
 # add_library(PatchProjection)
 # target_link_libraries(PatchProjection ${ITK_LIBRARIES})
