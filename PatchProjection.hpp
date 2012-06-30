@@ -36,7 +36,8 @@ TVectorType PatchProjection<TMatrixType, TVectorType>::VectorizePatch(const TIma
 
 template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-void PatchProjection<TMatrixType, TVectorType>::UnvectorizePatch(const TVectorType& vectorized, TImage* const image,
+void PatchProjection<TMatrixType, TVectorType>::UnvectorizePatch(const TVectorType& vectorized,
+                                                                 TImage* const image,
                                                                  const unsigned int channels)
 {
   // This function assumes the patch is square
