@@ -193,6 +193,15 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_C
   // Sort the eigenvalues from largest magnitude to smallest
   std::vector<ParallelSort::IndexedValue<float> > sorted = ParallelSort::ParallelSortDescending<float>(eigenvalueMagnitudes);
 
+  // Write eigenvalues to file (for plotting later)
+  std::vector<float> sortedEigenvalues(sorted.size());
+  for(unsigned int i = 0; i < sorted.size(); ++i)
+  {
+    sortedEigenvalues[i] = sorted[i].value;
+  }
+  Helpers::WriteVectorToFile(sortedEigenvalues, "eigenvalues.txt");
+  std::cout << "Wrote eigenvalues." << std::endl;
+
   // Reorder the eigenvectors
   TMatrixType sortedEigenVectors(eigensolver.eigenvectors().rows(), eigensolver.eigenvectors().cols());
   for(size_t i = 0; i < sorted.size(); ++i)
