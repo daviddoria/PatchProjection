@@ -142,6 +142,26 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::GetDummyProjectionMatrix(
 
 template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
+TMatrixType PatchProjection<TMatrixType, TVectorType>::GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
+                                            TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues)
+{
+  unsigned int numberOfComponentsPerPixel = image->GetNumberOfComponentsPerPixel();
+  unsigned int pixelsPerPatch = (patchRadius * 2 + 1) * (patchRadius * 2 + 1);
+  unsigned int featureLength = numberOfComponentsPerPixel * pixelsPerPatch;
+
+  TMatrixType dummyProjectionMatrix(featureLength, featureLength);
+  dummyProjectionMatrix.setIdentity();
+
+  meanVector.resize(featureLength);
+  meanVector.setZero();
+
+  sortedEigenvalues.resize(featureLength, 1.0f);
+
+  return dummyProjectionMatrix;
+}
+
+template <typename TMatrixType, typename TVectorType>
+template <typename TImage>
 TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix(const TImage* const image, const unsigned int patchRadius)
 {
   TVectorType meanVector;
@@ -159,9 +179,11 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_C
 
 template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_CovarianceEigen(const TImage* const image,
-                                                                                               const unsigned int patchRadius,
-                                                                                               TVectorType& meanVector)
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_CovarianceEigen
+                                                        (const TImage* const image,
+                                                         const unsigned int patchRadius,
+                                                         TVectorType& meanVector,
+                                                         std::vector<typename TVectorType::Scalar>& sortedEigenvalues)
 {
   std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
   TMatrixType featureMatrix = PatchProjection::VectorizeImage(image, patchRadius);
@@ -188,17 +210,32 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_C
   std::vector<float> eigenvalueMagnitudes(eigensolver.eigenvalues().size());
   for(int i = 0; i < eigensolver.eigenvalues().size(); ++i)
   {
+    if(eigensolver.eigenvalues()[i] < 0)
+    {
+      std::stringstream ss;
+      ss << "Eigenvalue cannot be negative! " << eigensolver.eigenvalues()[i];
+      std::runtime_error(ss.str());
+    }
     eigenvalueMagnitudes[i] = fabs(eigensolver.eigenvalues()[i]);
   }
 
   // Sort the eigenvalues from largest magnitude to smallest
   std::vector<ParallelSort::IndexedValue<float> > sorted = ParallelSort::ParallelSortDescending<float>(eigenvalueMagnitudes);
 
-  // Write eigenvalues to file (for plotting later)
-  std::vector<float> sortedEigenvalues(sorted.size());
+  // Write eigenvalue magnitudes to file (for plotting later)
+//   //std::vector<float> sortedEigenvalues(sorted.size());
+//   sortedEigenvalues.resize(sorted.size());
+//   for(unsigned int i = 0; i < sorted.size(); ++i)
+//   {
+//     sortedEigenvalues[i] = sorted[i].value;
+//   }
+//   Helpers::WriteVectorToFile(sortedEigenvalues, "eigenvalues.txt");
+//   std::cout << "Wrote eigenvalues." << std::endl;
+
+  sortedEigenvalues.resize(sorted.size());
   for(unsigned int i = 0; i < sorted.size(); ++i)
   {
-    sortedEigenvalues[i] = sorted[i].value;
+    sortedEigenvalues[i] = eigensolver.eigenvalues()[sorted[i].index];
   }
   Helpers::WriteVectorToFile(sortedEigenvalues, "eigenvalues.txt");
   std::cout << "Wrote eigenvalues." << std::endl;

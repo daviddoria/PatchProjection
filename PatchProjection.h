@@ -32,10 +32,10 @@ public:
                                                  TVectorType& meanVector, TVectorType& standardDeviationVector);
 
   /** Vectorize the entire image, construct a feature matrix, perform an SVD on the covariance matrix of the feature matrix,
-    * and return the 'U' matrix from the SVD. */
+    * and return the 'U' matrix from the SVD. Returns the eigenvalues by reference in 'sortedEigenvalues'. */
   template <typename TImage>
   static TMatrixType ComputeProjectionMatrix_CovarianceEigen(const TImage* const image, const unsigned int patchRadius,
-                                                 TVectorType& meanVector);
+                                                 TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues);
 
   /** Vectorize the entire image, construct a feature matrix, perform an SVD on the covariance matrix of the feature matrix,
     * and return the 'U' matrix from the SVD. */
@@ -54,6 +54,10 @@ public:
   template <typename TImage>
   static TMatrixType GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
                                               TVectorType& meanVector, TVectorType& standardDeviationVector);
+
+  template <typename TImage>
+  static TMatrixType GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
+                                              TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues);
 };
 
 #include "PatchProjection.hpp"
