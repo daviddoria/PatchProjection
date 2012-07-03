@@ -192,6 +192,8 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_C
   // used to do so for later un-standardization
   meanVector = featureMatrix.rowwise().mean();
 
+  std::cout << "meanVector: " << meanVector << std::endl;
+  
   // Subtract the mean vector from every column
   featureMatrix.colwise() -= meanVector;
 
@@ -233,10 +235,14 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_C
 //   std::cout << "Wrote eigenvalues." << std::endl;
 
   sortedEigenvalues.resize(sorted.size());
+  std::cout << "Eigenvalues: ";
   for(unsigned int i = 0; i < sorted.size(); ++i)
   {
     sortedEigenvalues[i] = eigensolver.eigenvalues()[sorted[i].index];
+    std::cout << sortedEigenvalues[i] << " ";
   }
+  std::cout << std::endl;
+  
   Helpers::WriteVectorToFile(sortedEigenvalues, "eigenvalues.txt");
   std::cout << "Wrote eigenvalues." << std::endl;
 
