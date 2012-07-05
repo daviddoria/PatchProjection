@@ -13,6 +13,11 @@ class PatchProjection
 {
 public:
 
+  /** Compute the eigendecomposition of the covariance matrix and return the matrix of eigenvectors (as columns)
+    * sorted in order of decreasing corresponding eigenvalues.*/
+  static TMatrixType SortedEigenDecomposition(const TMatrixType& covarianceMatrix,
+                                              std::vector<typename TVectorType::Scalar>& sortedEigenvalues);
+  
   /** Convert every region of an image to a vector.*/
   template <typename TImage>
   static TMatrixType VectorizeImage(const TImage* const image, const unsigned int patchRadius);
