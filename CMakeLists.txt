@@ -29,3 +29,8 @@ endif()
 
 # add_library(PatchProjection)
 # target_link_libraries(PatchProjection ${ITK_LIBRARIES})
+
+SET(PatchProjection_BuildTests OFF CACHE BOOL "PatchProjection_BuildTests")
+if(PatchProjection_BuildTests)
+  add_subdirectory(Tests)
+endif()

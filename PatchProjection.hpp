@@ -12,13 +12,15 @@
 #include "ITKHelpers/Helpers/ParallelSort.h"
 
 template <typename TMatrixType, typename TVectorType>
-template <typename TImage>
-TVectorType PatchProjection<TMatrixType, TVectorType>::VectorizePatch(const TImage* const image, const itk::ImageRegion<2>& region)
+template <typename TPixel>
+TVectorType PatchProjection<TMatrixType, TVectorType>::VectorizePatch(const itk::VectorImage<TPixel, 2>* const image, const itk::ImageRegion<2>& region)
 {
+  typedef itk::VectorImage<TPixel, 2> ImageType;
+  
   TVectorType vectorized =
        TVectorType::Zero(image->GetNumberOfComponentsPerPixel() * region.GetNumberOfPixels());
 
-  itk::ImageRegionConstIterator<TImage> imageIterator(image, region);
+  itk::ImageRegionConstIterator<ImageType> imageIterator(image, region);
 
   unsigned int numberOfComponentsPerPixel = image->GetNumberOfComponentsPerPixel();
   unsigned int pixelCounter = 0;
@@ -28,6 +30,28 @@ TVectorType PatchProjection<TMatrixType, TVectorType>::VectorizePatch(const TIma
       {
       vectorized[numberOfComponentsPerPixel * pixelCounter + component] = imageIterator.Get()[component];
       }
+    pixelCounter++;
+    ++imageIterator;
+    }
+  return vectorized;
+}
+
+template <typename TMatrixType, typename TVectorType>
+template <typename TPixel>
+TVectorType PatchProjection<TMatrixType, TVectorType>::VectorizePatch(const itk::Image<TPixel, 2>* const image,
+                                                                      const itk::ImageRegion<2>& region)
+{
+  typedef itk::Image<TPixel, 2> ImageType;
+  
+  TVectorType vectorized =
+       TVectorType::Zero(region.GetNumberOfPixels());
+
+  itk::ImageRegionConstIterator<ImageType> imageIterator(image, region);
+
+  unsigned int pixelCounter = 0;
+  while(!imageIterator.IsAtEnd())
+    {
+    vectorized[pixelCounter] = imageIterator.Get();
     pixelCounter++;
     ++imageIterator;
     }
@@ -95,9 +119,18 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::VectorizeImage(const TIma
   itk::Size<2> imageSize = image->GetLargestPossibleRegion().GetSize();
   unsigned int numberOfPatches = (imageSize[0] - patchRadius*2) * (imageSize[1] - patchRadius*2);
 
-  std::cout << "Allocating feature matrix " << featureLength << " x " << numberOfPatches << std::endl;
-  TMatrixType featureMatrix(featureLength, numberOfPatches);
-  std::cout << "Allocated feature matrix " << featureMatrix.rows() << " x " << featureMatrix.cols() << std::endl;
+  TMatrixType featureMatrix;
+  try
+  {
+  featureMatrix = TMatrixType(featureLength, numberOfPatches);
+  }
+  catch (...)
+  {
+    std::stringstream ss;
+    ss << "Not enough memory to allocate feature matrix "
+       << featureMatrix.rows() << " x " << featureMatrix.cols() << std::endl;
+    throw std::runtime_error(ss.str());
+  }
   itk::ImageRegionConstIterator<TImage> imageIterator(image, image->GetLargestPossibleRegion());
 
   std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
@@ -175,6 +208,64 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_C
                                                          TVectorType& meanVector, TVectorType& standardDeviationVector)
 {
   throw std::runtime_error("Not yet implemented.");
+}
+
+template <typename TMatrixType, typename TVectorType>
+template <typename TImage>
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrixFromImage(const TImage* const image, const unsigned int patchRadius,
+                                             TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues)
+{
+  unsigned int numberOfComponentsPerPixel = image->GetNumberOfComponentsPerPixel();
+  unsigned int pixelsPerPatch = (patchRadius * 2 + 1) * (patchRadius * 2 + 1);
+  unsigned int featureLength = numberOfComponentsPerPixel * pixelsPerPatch;
+
+  // This is how many patches fit entirely inside the image.
+  // For a 572x516 image and patch radius 7, we get 280116 patches.
+  itk::Size<2> imageSize = image->GetLargestPossibleRegion().GetSize();
+  unsigned int numberOfPatches = (imageSize[0] - patchRadius*2) * (imageSize[1] - patchRadius*2);
+
+  itk::ImageRegionConstIterator<TImage> imageIterator(image, image->GetLargestPossibleRegion());
+
+  std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
+  if(allPatches.size() != numberOfPatches)
+  {
+    std::stringstream ss;
+    ss << "Something is wrong - numberOfPatches is " << numberOfPatches << " but allPatches.size() is " << allPatches.size();
+    throw std::runtime_error(ss.str());
+  }
+  
+  std::cout << "There are " << allPatches.size() << " patches." << std::endl;
+
+  TMatrixType projectionMatrix(featureLength, featureLength);
+
+  // Compute mean
+  meanVector.resize(featureLength);
+  for(unsigned int patchId = 0; patchId < allPatches.size(); ++patchId)
+  {
+    meanVector += VectorizePatch(image, allPatches[patchId]);
+  }
+  meanVector /= static_cast<float>(numberOfPatches);
+
+  // Compute covariance
+  for(unsigned int row = 0; row < allPatches.size(); ++row)
+  {
+    for(unsigned int col = 0; col < allPatches.size(); ++col)
+    {
+      float sum = 0.0f;
+
+      for(unsigned int patchId = 0; patchId < allPatches.size(); ++patchId)
+      {
+        TVectorType vectorizedPatch = VectorizePatch(image, allPatches[patchId]);
+        sum += (vectorizedPatch[row] - meanVector[row]) * (vectorizedPatch[col] - meanVector[col]);
+      }
+      projectionMatrix(row, col) = sum / static_cast<float>(numberOfPatches - 1);
+    }
+  }
+
+  // Normalize
+  projectionMatrix *= 1.0f/(static_cast<float>(numberOfPatches - 1));
+
+  return projectionMatrix;
 }
 
 template <typename TMatrixType, typename TVectorType>
