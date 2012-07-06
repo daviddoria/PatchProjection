@@ -420,7 +420,7 @@ TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenv
     {
       featureMatrix.resize(featureLength, columnsForThisBlock);
     }
-    for(unsigned int patchId = 0; patchId < featureMatrix.cols(); ++patchId)
+    for(int patchId = 0; patchId < featureMatrix.cols(); ++patchId)
     {
       //std::cout << "patchId: " << patchId << std::endl;
       TVectorType vectorizedPatch = VectorizePatch(image, allPatches[rangeBeginnings[blockId] + patchId]);
