@@ -48,12 +48,29 @@ public:
   static TMatrixType ComputeProjectionMatrix_CovarianceEigen(const TImage* const image, const unsigned int patchRadius,
                                                  TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues);
 
-  /** When the data is too big to compute a feature matrix, we can compute the covariance matrix directly from the image,
-    * though it is much slower.
+  /** When the data is too big to compute a feature matrix, we can compute the covariance matrix directly from the image
+    * by computing it one element at a time. It is hundreds of times slower (694m43.748s vs 4s for the full matrix multiplication).
     * Return the 'U' matrix from the eigendecomposition. Return the 'meanVector' by reference, and returns the
     * eigenvalues by reference in 'sortedEigenvalues'. */
   template <typename TImage>
-  static TMatrixType ComputeProjectionMatrixFromImage(const TImage* const image, const unsigned int patchRadius,
+  static TMatrixType ComputeProjectionMatrixFromImageElementWise(const TImage* const image, const unsigned int patchRadius,
+                                                      TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues);
+
+  /** When the data is too big to compute a feature matrix, we can compute the covariance matrix directly from the image
+    * by computing it by summing the outer product of one column at a time.
+    * though it is much slower (1m41s vs 3s for the full matrix product technique).
+    * Return the 'U' matrix from the eigendecomposition. Return the 'meanVector' by reference, and returns the
+    * eigenvalues by reference in 'sortedEigenvalues'. */
+  template <typename TImage>
+  static TMatrixType ComputeProjectionMatrixFromImageOuterProduct(const TImage* const image, const unsigned int patchRadius,
+                                                      TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues);
+
+  /** When the data is too big to compute a feature matrix, we can compute the covariance matrix directly from the image
+    * by breaking it into blocks and summing the products of the blocks.
+    * Return the 'U' matrix from the eigendecomposition. Return the 'meanVector' by reference, and returns the
+    * eigenvalues by reference in 'sortedEigenvalues'. */
+  template <typename TImage>
+  static TMatrixType ComputeProjectionMatrixFromImagePartialMatrix(const TImage* const image, const unsigned int patchRadius,
                                                       TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues);
   
   /** Vectorize the entire image, construct a feature matrix, perform an SVD on the covariance matrix of the feature matrix,

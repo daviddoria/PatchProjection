@@ -171,7 +171,8 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::GetDummyProjectionMatrix(
 {
   TVectorType meanVector;
   TVectorType standardDeviationVector;
-  return GetDummyProjectionMatrix(image, patchRadius, meanVector, standardDeviationVector);
+  TMatrixType projectionMatrix = GetDummyProjectionMatrix(image, patchRadius, meanVector, standardDeviationVector);
+  return projectionMatrix;
 }
 
 template <typename TMatrixType, typename TVectorType>
@@ -201,7 +202,8 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix(c
 {
   TVectorType meanVector;
   TVectorType standardDeviationVector;
-  return ComputeProjectionMatrix_CovarianceEigen(image, patchRadius, meanVector, standardDeviationVector);
+  TMatrixType projectionMatrix = ComputeProjectionMatrix_CovarianceEigen(image, patchRadius, meanVector, standardDeviationVector);
+  return projectionMatrix;
 }
 
 template <typename TMatrixType, typename TVectorType>
@@ -215,7 +217,7 @@ TVectorType& meanVector, TVectorType& standardDeviationVector)
 
 template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
-TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrixFromImage
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrixFromImageElementWise
 (const TImage* const image, const unsigned int patchRadius,
 TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues)
 {
@@ -255,6 +257,7 @@ TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenv
   {
     for(unsigned int col = 0; col < featureLength; ++col)
     {
+      std::cout << "Row: " << row << " col: " << col << std::endl;
       float sum = 0.0f;
 
       for(unsigned int patchId = 0; patchId < allPatches.size(); ++patchId)
@@ -262,9 +265,160 @@ TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenv
         TVectorType vectorizedPatch = VectorizePatch(image, allPatches[patchId]);
         sum += (vectorizedPatch[row] - meanVector[row]) * (vectorizedPatch[col] - meanVector[col]);
       }
-      covarianceMatrix(row, col) = sum / static_cast<float>(numberOfPatches - 1);
+      covarianceMatrix(row, col) = sum;
     }
   }
+
+  covarianceMatrix /= static_cast<float>(numberOfPatches - 1);
+  
+  TMatrixType projectionMatrix = SortedEigenDecomposition(covarianceMatrix, sortedEigenvalues);
+  return projectionMatrix;
+}
+
+
+template <typename TMatrixType, typename TVectorType>
+template <typename TImage>
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrixFromImageOuterProduct
+(const TImage* const image, const unsigned int patchRadius,
+TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues)
+{
+  unsigned int numberOfComponentsPerPixel = image->GetNumberOfComponentsPerPixel();
+  unsigned int pixelsPerPatch = (patchRadius * 2 + 1) * (patchRadius * 2 + 1);
+  unsigned int featureLength = numberOfComponentsPerPixel * pixelsPerPatch;
+
+  // This is how many patches fit entirely inside the image.
+  // For a 572x516 image and patch radius 7, we get 280116 patches.
+  itk::Size<2> imageSize = image->GetLargestPossibleRegion().GetSize();
+  unsigned int numberOfPatches = (imageSize[0] - patchRadius*2) * (imageSize[1] - patchRadius*2);
+
+  itk::ImageRegionConstIterator<TImage> imageIterator(image, image->GetLargestPossibleRegion());
+
+  std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
+  if(allPatches.size() != numberOfPatches)
+  {
+    std::stringstream ss;
+    ss << "Something is wrong - numberOfPatches is " << numberOfPatches << " but allPatches.size() is " << allPatches.size();
+    throw std::runtime_error(ss.str());
+  }
+
+  std::cout << "There are " << allPatches.size() << " patches." << std::endl;
+
+  TMatrixType covarianceMatrix(featureLength, featureLength);
+  covarianceMatrix.setZero();
+
+  // Compute mean
+  meanVector.resize(featureLength);
+  for(unsigned int patchId = 0; patchId < allPatches.size(); ++patchId)
+  {
+    meanVector += VectorizePatch(image, allPatches[patchId]);
+  }
+  meanVector /= static_cast<float>(numberOfPatches);
+
+  // Compute covariance
+
+  for(unsigned int patchId = 0; patchId < allPatches.size(); ++patchId)
+  {
+    std::cout << "patchId: " << patchId << std::endl;
+    TVectorType vectorizedPatch = VectorizePatch(image, allPatches[patchId]);
+    covarianceMatrix += vectorizedPatch * vectorizedPatch.transpose();
+  }
+
+  std::cout << "covarianceMatrix is " << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << std::endl;
+  covarianceMatrix /= static_cast<float>(numberOfPatches - 1);
+
+  TMatrixType projectionMatrix = SortedEigenDecomposition(covarianceMatrix, sortedEigenvalues);
+  return projectionMatrix;
+}
+
+
+template <typename TMatrixType, typename TVectorType>
+template <typename TImage>
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrixFromImagePartialMatrix
+(const TImage* const image, const unsigned int patchRadius,
+TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues)
+{
+  unsigned int numberOfComponentsPerPixel = image->GetNumberOfComponentsPerPixel();
+  unsigned int pixelsPerPatch = (patchRadius * 2 + 1) * (patchRadius * 2 + 1);
+  unsigned int featureLength = numberOfComponentsPerPixel * pixelsPerPatch;
+
+  // This is how many patches fit entirely inside the image.
+  // For a 572x516 image and patch radius 7, we get 280116 patches.
+  itk::Size<2> imageSize = image->GetLargestPossibleRegion().GetSize();
+  unsigned int numberOfPatches = (imageSize[0] - patchRadius*2) * (imageSize[1] - patchRadius*2);
+
+  itk::ImageRegionConstIterator<TImage> imageIterator(image, image->GetLargestPossibleRegion());
+
+  std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
+  if(allPatches.size() != numberOfPatches)
+  {
+    std::stringstream ss;
+    ss << "Something is wrong - numberOfPatches is " << numberOfPatches << " but allPatches.size() is " << allPatches.size();
+    throw std::runtime_error(ss.str());
+  }
+
+  std::cout << "There are " << allPatches.size() << " patches." << std::endl;
+
+  TMatrixType covarianceMatrix(featureLength, featureLength);
+  covarianceMatrix.setZero();
+
+  // Compute mean
+  meanVector.resize(featureLength);
+  for(unsigned int patchId = 0; patchId < allPatches.size(); ++patchId)
+  {
+    meanVector += VectorizePatch(image, allPatches[patchId]);
+  }
+  meanVector /= static_cast<float>(numberOfPatches);
+
+  // Compute a block of the feature matrix that will fit in memory
+  TMatrixType featureMatrix;
+  bool successfullyAllocated = false;
+  unsigned int columnsToAllocate = allPatches.size();
+  while(!successfullyAllocated)
+  {
+    try
+    {
+      featureMatrix.resize(featureLength, columnsToAllocate);
+      successfullyAllocated = true; // set this here, but it will be set back to false in the catch if the allocation failed
+    }
+    catch (...)
+    {
+      successfullyAllocated = false;
+      columnsToAllocate /= 2;
+    }
+  }
+
+  unsigned int blockSize = featureMatrix.cols();
+  
+  // Compute block range beginnings
+  std::vector<unsigned int> rangeBeginnings;
+  rangeBeginnings.push_back(0);
+  while(rangeBeginnings[rangeBeginnings.size() - 1] < (allPatches.size() - 1) )
+  {
+    rangeBeginnings.push_back(rangeBeginnings[rangeBeginnings.size() - 1] + blockSize);
+  }
+
+  // Output block range beginnings
+  std::cout << "Range beginnings: ";
+  for(unsigned int i = 0; i < rangeBeginnings.size(); ++i)
+  {
+    std::cout << rangeBeginnings[i] << " ";
+  }
+  std::cout << std::endl;
+
+  // Compute covariance matrix
+  for(unsigned int blockId = 0; blockId < rangeBeginnings.size(); ++blockId)
+  {
+    for(unsigned int patchId = 0; patchId < blockSize; ++patchId)
+    {
+      //std::cout << "patchId: " << patchId << std::endl;
+      TVectorType vectorizedPatch = VectorizePatch(image, allPatches[rangeBeginnings[blockId] + patchId]);
+      featureMatrix.col(patchId) = vectorizedPatch;
+    }
+    covarianceMatrix += featureMatrix * featureMatrix.transpose();
+  }
+
+  std::cout << "covarianceMatrix is " << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << std::endl;
+  covarianceMatrix /= static_cast<float>(numberOfPatches - 1);
 
   TMatrixType projectionMatrix = SortedEigenDecomposition(covarianceMatrix, sortedEigenvalues);
   return projectionMatrix;
@@ -276,8 +430,9 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::SortedEigenDecomposition(
 {
 
   Eigen::SelfAdjointEigenSolver<TMatrixType> eigensolver(covarianceMatrix);
-  if (eigensolver.info() != Eigen::Success)
+  if(eigensolver.info() != Eigen::Success)
   {
+    std::cout << "Success should be: " << Eigen::Success << " but info says " << eigensolver.info() << std::endl;
     throw std::runtime_error("Eigen decomposition of the covariance matrix failed!");
   }
 
@@ -309,16 +464,16 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::SortedEigenDecomposition(
 //   std::cout << "Wrote eigenvalues." << std::endl;
 
   sortedEigenvalues.resize(sorted.size());
-  std::cout << "Eigenvalues: ";
+  //std::cout << "Eigenvalues: ";
   for(unsigned int i = 0; i < sorted.size(); ++i)
   {
     sortedEigenvalues[i] = eigensolver.eigenvalues()[sorted[i].index];
-    std::cout << sortedEigenvalues[i] << " ";
+    //std::cout << sortedEigenvalues[i] << " ";
   }
-  std::cout << std::endl;
+  //std::cout << std::endl;
 
   Helpers::WriteVectorToFile(sortedEigenvalues, "eigenvalues.txt");
-  std::cout << "Wrote eigenvalues." << std::endl;
+  //std::cout << "Wrote eigenvalues." << std::endl;
 
   // Reorder the eigenvectors
   TMatrixType sortedEigenVectors(eigensolver.eigenvectors().rows(), eigensolver.eigenvectors().cols());

@@ -11,6 +11,7 @@ static void Large();
 
 int main( int argc, char ** argv )
 {
+  std::cout << argv[0] << std::endl;
   Small();
   //Large();
   return 0;
@@ -117,7 +118,7 @@ void Small()
   VectorType meanVector;
   std::vector<VectorType::Scalar> sortedEigenvalues;
 
-  MatrixType projectionMatrixDirect = PatchProjection<MatrixType, VectorType>::ComputeProjectionMatrixFromImage
+  MatrixType projectionMatrixDirect = PatchProjection<MatrixType, VectorType>::ComputeProjectionMatrixFromImageOuterProduct
                                 (image.GetPointer(), patchRadius, meanVector, sortedEigenvalues);
 
   std::cout << "projectionMatrixDirect meanVector: " << std::endl << meanVector << std::endl;
@@ -158,7 +159,7 @@ void Large()
 
   const unsigned int patchRadius = 1;
 
-  MatrixType projectionMatrixDirect = PatchProjection<MatrixType, VectorType>::ComputeProjectionMatrixFromImage
+  MatrixType projectionMatrixDirect = PatchProjection<MatrixType, VectorType>::ComputeProjectionMatrixFromImageOuterProduct
                                 (image.GetPointer(), patchRadius, meanVector, sortedEigenvalues);
 
   std::cout << "projectionMatrixDirect meanVector: " << std::endl << meanVector << std::endl;
