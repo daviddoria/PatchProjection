@@ -3,6 +3,9 @@
 
 #include "PatchProjection.h" // appease syntax parser
 
+// Eigen
+#include <Eigen/Dense>
+
 // ITK
 #include "itkImageRegionConstIterator.h"
 
@@ -383,7 +386,8 @@ TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenv
     catch (...)
     {
       successfullyAllocated = false;
-      columnsToAllocate /= 2;
+      unsigned int downsampleFactor = 3;
+      columnsToAllocate /= downsampleFactor;
     }
   }
 
@@ -392,7 +396,7 @@ TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenv
   // Compute block range beginnings
   std::vector<unsigned int> rangeBeginnings;
   rangeBeginnings.push_back(0);
-  while(rangeBeginnings[rangeBeginnings.size() - 1] < (allPatches.size() - 1) )
+  while(rangeBeginnings[rangeBeginnings.size() - 1] + blockSize < (allPatches.size() - 1) )
   {
     rangeBeginnings.push_back(rangeBeginnings[rangeBeginnings.size() - 1] + blockSize);
   }
@@ -408,13 +412,26 @@ TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenv
   // Compute covariance matrix
   for(unsigned int blockId = 0; blockId < rangeBeginnings.size(); ++blockId)
   {
-    for(unsigned int patchId = 0; patchId < blockSize; ++patchId)
+    std::cout << "Processing block " << blockId << "..." << std::endl;
+    // We need to check if this block needs to have less columns than the block size (i.e. we are at the last block and there
+    // is not enough data left to fill it.
+    unsigned int columnsForThisBlock = allPatches.size() - rangeBeginnings[blockId];
+    if(columnsForThisBlock < blockSize)
+    {
+      featureMatrix.resize(featureLength, columnsForThisBlock);
+    }
+    for(unsigned int patchId = 0; patchId < featureMatrix.cols(); ++patchId)
     {
       //std::cout << "patchId: " << patchId << std::endl;
       TVectorType vectorizedPatch = VectorizePatch(image, allPatches[rangeBeginnings[blockId] + patchId]);
       featureMatrix.col(patchId) = vectorizedPatch;
     }
-    covarianceMatrix += featureMatrix * featureMatrix.transpose();
+    // Without this noalias, the result will be stored in a temporary
+    //covarianceMatrix.noalias() += featureMatrix * featureMatrix.transpose();
+    
+    // This only computes half of the matrix product because the result is symmetric!
+    //covarianceMatrix.selfadjointView<Eigen::Upper>().rankUpdate(featureMatrix);
+    covarianceMatrix.template selfadjointView<Eigen::Upper>().rankUpdate(featureMatrix);
   }
 
   std::cout << "covarianceMatrix is " << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << std::endl;

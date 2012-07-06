@@ -6,18 +6,25 @@
 // STL
 #include <vector>
 
-static void Small();
-static void Large();
+/** This is a small, controlled, non-randomized function for careful checking of each step of the process */
+static void SmallCovariance();
+
+/** This is a more realistic example. */
+static void LargeCovariance();
+
+/** This is a test of computing the covariance matrix of a featureMatrix that will not fit in memory. */
+static void HugeCovariance();
 
 int main( int argc, char ** argv )
 {
   std::cout << argv[0] << std::endl;
-  Small();
-  //Large();
+  //SmallCovariance();
+  //LargeCovariance();
+  HugeCovariance();
   return 0;
 }
 
-void Small()
+void SmallCovariance()
 {
   typedef itk::Image<unsigned char, 2> ImageType;
   ImageType::Pointer image = ImageType::New();
@@ -131,7 +138,7 @@ void Small()
   std::cout << "projectionMatrixFromFeatureMatrix: " << std::endl << projectionMatrixFromFeatureMatrix << std::endl;
 }
 
-void Large()
+void LargeCovariance()
 {
   typedef itk::Image<unsigned char, 2> ImageType;
   ImageType::Pointer image = ImageType::New();
@@ -171,5 +178,39 @@ void Large()
 
   std::cout << "projectionMatrixFromFeatureMatrix meanVector: " << std::endl << meanVector << std::endl;
   std::cout << "projectionMatrixFromFeatureMatrix: " << std::endl << projectionMatrixFromFeatureMatrix << std::endl;
+}
+
+
+void HugeCovariance()
+{
+  typedef itk::Image<unsigned char, 2> ImageType;
+  ImageType::Pointer image = ImageType::New();
+
+  itk::Index<2> corner = {{0,0}};
+  itk::Size<2> size = {{1000,1000}};
+  itk::ImageRegion<2> region(corner, size);
+
+  image->SetRegions(region);
+  image->Allocate();
+
+  itk::ImageRegionIterator<ImageType> imageIterator(image, image->GetLargestPossibleRegion());
+
+  while(!imageIterator.IsAtEnd())
+    {
+    imageIterator.Set(rand() % 255);
+    ++imageIterator;
+    }
+
+  typedef Eigen::MatrixXf MatrixType;
+  typedef Eigen::VectorXf VectorType;
+
+  VectorType meanVector;
+  std::vector<VectorType::Scalar> sortedEigenvalues;
+
+  const unsigned int patchRadius = 15; // fits in memory (500x500 image)
+
+  MatrixType projectionMatrixDirect = PatchProjection<MatrixType, VectorType>::ComputeProjectionMatrixFromImagePartialMatrix
+                                (image.GetPointer(), patchRadius, meanVector, sortedEigenvalues);
+
 }
 
