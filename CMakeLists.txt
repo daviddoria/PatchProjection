@@ -26,9 +26,10 @@ if(PatchProjection_BuildExample)
   target_link_libraries(PatchProjectionExample ${ITK_LIBRARIES} ITKHelpers EigenHelpers)
 endif()
 
-
-# add_library(PatchProjection)
-# target_link_libraries(PatchProjection ${ITK_LIBRARIES})
+# Do this even though it is not necessary (this is a template library (header-only)). We use a
+# target with the same name as the submodule to check if the submodule has already been included.
+add_library(PatchProjection)
+target_link_libraries(PatchProjection ${ITK_LIBRARIES})
 
 SET(PatchProjection_BuildTests OFF CACHE BOOL "PatchProjection_BuildTests")
 if(PatchProjection_BuildTests)
