@@ -50,13 +50,13 @@ public:
   /** Perform an SVD on the covariance matrix of the 'featureMatrix',
     * and return the 'U' matrix from the SVD. Return the 'meanVector' by reference, and returns the eigenvalues by
     * reference in 'sortedEigenvalues'. */
-  TMatrixType ProjectionMatrixFromFeatureMatrix(const TMatrixType& featureMatrix,
+  static TMatrixType ProjectionMatrixFromFeatureMatrix(const TMatrixType& featureMatrix,
                                                 TVectorType& meanVector,
                                                 std::vector<typename TVectorType::Scalar>& sortedEigenvalues);
 
   /** Perform an SVD on the covariance matrix of the 'featureMatrix',
     * and return the 'U' matrix from the SVD. This function simply calls the function of the same name with dummy arguments. */
-  TMatrixType ProjectionMatrixFromFeatureMatrix(const TMatrixType& featureMatrix);
+  static TMatrixType ProjectionMatrixFromFeatureMatrix(const TMatrixType& featureMatrix);
 
   /** Vectorize the entire image, construct a feature matrix, perform an SVD on the covariance matrix of the feature matrix,
     * and return the 'U' matrix from the SVD. Return the 'meanVector' by reference, and returns the eigenvalues by
