@@ -17,8 +17,14 @@ public:
     * sorted in order of decreasing corresponding eigenvalues.*/
   static TMatrixType SortedEigenDecomposition(const TMatrixType& covarianceMatrix,
                                               std::vector<typename TVectorType::Scalar>& sortedEigenvalues);
-  
-  /** Convert every region of an image to a vector.*/
+
+  /** Compute a "feature matrix" by convert every region of radius 'patchRadius' of an image inside of 'region' into a vector and storing
+    * it as a column of the matrix.*/
+  template <typename TImage>
+  static TMatrixType VectorizeImage(const TImage* const image, const unsigned int patchRadius, const itk::ImageRegion<2>& region);
+
+  /** Compute a "feature matrix" by convert every region of radius 'patchRadius' of an image into a vector and storing
+    * it as a column of the matrix.*/
   template <typename TImage>
   static TMatrixType VectorizeImage(const TImage* const image, const unsigned int patchRadius);
 
@@ -29,7 +35,7 @@ public:
   /** Convert a region of a scalar image to a vector.*/
   template <typename TPixel>
   static TVectorType VectorizePatch(const itk::Image<TPixel, 2>* const image, const itk::ImageRegion<2>& region);
-  
+
   /** Given a vectorized patch, convert it back to an image.*/
   template <typename TImage>
   static void UnvectorizePatch(const TVectorType& vectorized, TImage* const image,
@@ -40,6 +46,17 @@ public:
   template <typename TImage>
   static TMatrixType ComputeProjectionMatrix_CovarianceEigen(const TImage* const image, const unsigned int patchRadius,
                                                  TVectorType& meanVector, TVectorType& standardDeviationVector);
+
+  /** Perform an SVD on the covariance matrix of the 'featureMatrix',
+    * and return the 'U' matrix from the SVD. Return the 'meanVector' by reference, and returns the eigenvalues by
+    * reference in 'sortedEigenvalues'. */
+  TMatrixType ProjectionMatrixFromFeatureMatrix(const TMatrixType& featureMatrix,
+                                                TVectorType& meanVector,
+                                                std::vector<typename TVectorType::Scalar>& sortedEigenvalues);
+
+  /** Perform an SVD on the covariance matrix of the 'featureMatrix',
+    * and return the 'U' matrix from the SVD. This function simply calls the function of the same name with dummy arguments. */
+  TMatrixType ProjectionMatrixFromFeatureMatrix(const TMatrixType& featureMatrix);
 
   /** Vectorize the entire image, construct a feature matrix, perform an SVD on the covariance matrix of the feature matrix,
     * and return the 'U' matrix from the SVD. Return the 'meanVector' by reference, and returns the eigenvalues by

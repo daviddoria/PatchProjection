@@ -108,9 +108,18 @@ void PatchProjection<TMatrixType, TVectorType>::UnvectorizePatch(const TVectorTy
   } // end while
 }
 
+
 template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
 TMatrixType PatchProjection<TMatrixType, TVectorType>::VectorizeImage(const TImage* const image, const unsigned int patchRadius)
+{
+  return VectorizeImage(image, patchRadius, image->GetLargestPossibleRegion());
+}
+
+template <typename TMatrixType, typename TVectorType>
+template <typename TImage>
+TMatrixType PatchProjection<TMatrixType, TVectorType>::VectorizeImage(const TImage* const image, const unsigned int patchRadius,
+                                                                      const itk::ImageRegion<2>& region)
 {
   // The matrix constructed by this has each vectorized patch as a column.
 
@@ -118,9 +127,9 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::VectorizeImage(const TIma
   unsigned int pixelsPerPatch = (patchRadius * 2 + 1) * (patchRadius * 2 + 1);
   unsigned int featureLength = numberOfComponentsPerPixel * pixelsPerPatch;
 
-  // This is how many patches fit entirely inside the image.
-  // For a 572x516 image and patch radius 7, we get 280116 patches.
-  itk::Size<2> imageSize = image->GetLargestPossibleRegion().GetSize();
+  // This is how many patches fit entirely inside the region.
+  // For a 572x516 region and patch radius 7, we get 280116 patches.
+  itk::Size<2> imageSize = region.GetSize();
   unsigned int numberOfPatches = (imageSize[0] - patchRadius*2) * (imageSize[1] - patchRadius*2);
 
   TMatrixType featureMatrix;
@@ -135,9 +144,9 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::VectorizeImage(const TIma
        << featureMatrix.rows() << " x " << featureMatrix.cols() << std::endl;
     throw std::runtime_error(ss.str());
   }
-  itk::ImageRegionConstIterator<TImage> imageIterator(image, image->GetLargestPossibleRegion());
+  itk::ImageRegionConstIterator<TImage> imageIterator(image, region);
 
-  std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
+  std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(region, patchRadius);
   std::cout << "There are " << allPatches.size() << " patches." << std::endl;
   for(unsigned int patchId = 0; patchId < allPatches.size(); ++patchId)
   {
@@ -503,6 +512,39 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::SortedEigenDecomposition(
 }
 
 template <typename TMatrixType, typename TVectorType>
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ProjectionMatrixFromFeatureMatrix
+                                                        (const TMatrixType& featureMatrix)
+{
+  TVectorType& meanVector;
+  std::vector<typename TVectorType::Scalar> sortedEigenvalues;
+  return PatchProjection<TMatrixType, TVectorType>::
+           ProjectionMatrixFromFeatureMatrix(featureMatrix, meanVector, sortedEigenvalues);
+}
+
+template <typename TMatrixType, typename TVectorType>
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ProjectionMatrixFromFeatureMatrix
+                                                        (const TMatrixType& featureMatrix,
+                                                         TVectorType& meanVector,
+                                                         std::vector<typename TVectorType::Scalar>& sortedEigenvalues)
+{
+  // Standardize the vectorized patches, and store the meanVector
+  // used to do so for later un-standardization
+  meanVector = featureMatrix.rowwise().mean();
+
+  //std::cout << "meanVector: " << meanVector << std::endl;
+
+  // Subtract the mean vector from every column
+  featureMatrix.colwise() -= meanVector;
+
+  TMatrixType covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(featureMatrix);
+
+  std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
+
+  TMatrixType projectionMatrix = SortedEigenDecomposition(covarianceMatrix, sortedEigenvalues);
+  return projectionMatrix;
+}
+
+template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
 TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_CovarianceEigen
                                                         (const TImage* const image,
@@ -513,21 +555,7 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ComputeProjectionMatrix_C
   std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(image->GetLargestPossibleRegion(), patchRadius);
   TMatrixType featureMatrix = PatchProjection::VectorizeImage(image, patchRadius);
 
-  // Standardize the vectorized patches, and store the meanVector
-  // used to do so for later un-standardization
-  meanVector = featureMatrix.rowwise().mean();
-
-  //std::cout << "meanVector: " << meanVector << std::endl;
-  
-  // Subtract the mean vector from every column
-  featureMatrix.colwise() -= meanVector;
-
-  TMatrixType covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(featureMatrix);
-
-  std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
-
-  TMatrixType projectionMatrix = SortedEigenDecomposition(covarianceMatrix, sortedEigenvalues);
-  return projectionMatrix;
+  return PatchProjection<TMatrixType, TVectorType>::ProjectionMatrixFromFeatureMatrix(featureMatrix, meanVector, sortedEigenvalues);
 }
 
 template <typename TMatrixType, typename TVectorType>
