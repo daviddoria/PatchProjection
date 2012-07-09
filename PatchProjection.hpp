@@ -515,7 +515,7 @@ template <typename TMatrixType, typename TVectorType>
 TMatrixType PatchProjection<TMatrixType, TVectorType>::ProjectionMatrixFromFeatureMatrix
                                                         (const TMatrixType& featureMatrix)
 {
-  TVectorType& meanVector;
+  TVectorType meanVector;
   std::vector<typename TVectorType::Scalar> sortedEigenvalues;
   return PatchProjection<TMatrixType, TVectorType>::
            ProjectionMatrixFromFeatureMatrix(featureMatrix, meanVector, sortedEigenvalues);
@@ -534,9 +534,10 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ProjectionMatrixFromFeatu
   //std::cout << "meanVector: " << meanVector << std::endl;
 
   // Subtract the mean vector from every column
-  featureMatrix.colwise() -= meanVector;
+  TMatrixType meanNormalizedFeatureMatrix = featureMatrix;
+  meanNormalizedFeatureMatrix.colwise() -= meanVector;
 
-  TMatrixType covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(featureMatrix);
+  TMatrixType covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(meanNormalizedFeatureMatrix);
 
   std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
 
