@@ -147,7 +147,7 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::VectorizeImage(const TIma
   itk::ImageRegionConstIterator<TImage> imageIterator(image, region);
 
   std::vector<itk::ImageRegion<2> > allPatches = ITKHelpers::GetAllPatches(region, patchRadius);
-  std::cout << "There are " << allPatches.size() << " patches." << std::endl;
+  //std::cout << "There are " << allPatches.size() << " patches." << std::endl;
   for(unsigned int patchId = 0; patchId < allPatches.size(); ++patchId)
   {
     featureMatrix.col(patchId) = VectorizePatch(image, allPatches[patchId]);
@@ -539,7 +539,8 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ProjectionMatrixFromFeatu
 
   TMatrixType covarianceMatrix = EigenHelpers::ConstructCovarianceMatrixFromFeatureMatrix(meanNormalizedFeatureMatrix);
 
-  std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x " << covarianceMatrix.cols() << ")" << std::endl;
+//   std::cout << "Done computing covariance matrix (" << covarianceMatrix.rows() << " x "
+//             << covarianceMatrix.cols() << ")" << std::endl;
 
   TMatrixType projectionMatrix = SortedEigenDecomposition(covarianceMatrix, sortedEigenvalues);
   return projectionMatrix;
