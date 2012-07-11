@@ -189,6 +189,17 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::GetDummyProjectionMatrix(
 
 template <typename TMatrixType, typename TVectorType>
 template <typename TImage>
+TMatrixType PatchProjection<TMatrixType, TVectorType>::GetDummyProjectionMatrix(const TImage* const image,
+                                                                                const unsigned int patchRadius,
+                                                                                TVectorType& meanVector)
+{
+  TVectorType standardDeviationVector;
+  TMatrixType projectionMatrix = GetDummyProjectionMatrix(image, patchRadius, meanVector, standardDeviationVector);
+  return projectionMatrix;
+}
+
+template <typename TMatrixType, typename TVectorType>
+template <typename TImage>
 TMatrixType PatchProjection<TMatrixType, TVectorType>::GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
                                             TVectorType& meanVector, std::vector<typename TVectorType::Scalar>& sortedEigenvalues)
 {
@@ -516,6 +527,15 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::ProjectionMatrixFromFeatu
                                                         (const TMatrixType& featureMatrix)
 {
   TVectorType meanVector;
+  std::vector<typename TVectorType::Scalar> sortedEigenvalues;
+  return PatchProjection<TMatrixType, TVectorType>::
+           ProjectionMatrixFromFeatureMatrix(featureMatrix, meanVector, sortedEigenvalues);
+}
+
+template <typename TMatrixType, typename TVectorType>
+TMatrixType PatchProjection<TMatrixType, TVectorType>::ProjectionMatrixFromFeatureMatrix(const TMatrixType& featureMatrix,
+                                                                                         TVectorType& meanVector)
+{
   std::vector<typename TVectorType::Scalar> sortedEigenvalues;
   return PatchProjection<TMatrixType, TVectorType>::
            ProjectionMatrixFromFeatureMatrix(featureMatrix, meanVector, sortedEigenvalues);

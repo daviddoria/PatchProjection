@@ -55,6 +55,11 @@ public:
                                                 std::vector<typename TVectorType::Scalar>& sortedEigenvalues);
 
   /** Perform an SVD on the covariance matrix of the 'featureMatrix',
+    * and return the 'U' matrix from the SVD. Return the 'meanVector' by reference. */
+  static TMatrixType ProjectionMatrixFromFeatureMatrix(const TMatrixType& featureMatrix,
+                                                TVectorType& meanVector);
+
+  /** Perform an SVD on the covariance matrix of the 'featureMatrix',
     * and return the 'U' matrix from the SVD. This function simply calls the function of the same name with dummy arguments. */
   static TMatrixType ProjectionMatrixFromFeatureMatrix(const TMatrixType& featureMatrix);
 
@@ -104,6 +109,10 @@ public:
   template <typename TImage>
   static TMatrixType GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius);
 
+  template <typename TImage>
+  static TMatrixType GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
+                                              TVectorType& meanVector);
+  
   template <typename TImage>
   static TMatrixType GetDummyProjectionMatrix(const TImage* const image, const unsigned int patchRadius,
                                               TVectorType& meanVector, TVectorType& standardDeviationVector);
