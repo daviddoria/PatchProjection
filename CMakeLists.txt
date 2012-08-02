@@ -6,7 +6,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=gnu++0x")
 
 include_directories(/media/portable/src/Eigen)
 
-FIND_PACKAGE(ITK REQUIRED ITKCommon ITKIOImageBase
+FIND_PACKAGE(ITK REQUIRED ITKCommon ITKIOImageBase ITKIOPNG ITKIOMeta
 ITKImageIntensity ITKImageFeature ITKMathematicalMorphology ITKBinaryMathematicalMorphology ITKDistanceMap)
 INCLUDE(${ITK_USE_FILE})
 
@@ -16,15 +16,21 @@ INCLUDE(${VTK_USE_FILE})
 if(NOT TARGET ITKHelpers)
   add_subdirectory(ITKHelpers)
   include_directories(${ITKHelpers_includes})
+  set(PatchProjection_includes ${PatchProjection_includes} ${ITKHelpers_includes})
+  set(PatchProjection_libraries ${PatchProjection_libraries} ITKHelpers)
 endif()
 
 if(NOT TARGET EigenHelpers)
   add_subdirectory(EigenHelpers)
   include_directories(${EigenHelpers_includes})
+  set(PatchProjection_includes ${PatchProjection_includes} ${EigenHelpers_includes})
+  set(PatchProjection_libraries ${PatchProjection_libraries} EigenHelpers)
 endif()
 
 if(NOT ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
-  set(PatchProjection_includes ${ITKHelpers_includes} ${CMAKE_CURRENT_SOURCE_DIR} PARENT_SCOPE)
+  set(PatchProjection_includes ${PatchProjection_includes} ${CMAKE_CURRENT_SOURCE_DIR} PARENT_SCOPE)
+  set(PatchProjection_libraries ${PatchProjection_libraries} ${ITK_LIBRARIES} ${VTK_LIBRARIES} PARENT_SCOPE)
+  message("PatchProjection submodule used from ${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
 
 SET(PatchProjection_BuildExample OFF CACHE BOOL "PatchProjection_BuildExample")
@@ -33,10 +39,7 @@ if(PatchProjection_BuildExample)
   target_link_libraries(PatchProjectionExample ${ITK_LIBRARIES} ITKHelpers EigenHelpers)
 endif()
 
-# Do this even though it is not necessary (this is a template library (header-only)). We use a
-# target with the same name as the submodule to check if the submodule has already been included.
-add_library(PatchProjection)
-target_link_libraries(PatchProjection ${ITK_LIBRARIES})
+add_custom_target(PatchProjection)
 
 SET(PatchProjection_BuildTests OFF CACHE BOOL "PatchProjection_BuildTests")
 if(PatchProjection_BuildTests)
