@@ -41,6 +41,31 @@ TVectorType PatchProjection<TMatrixType, TVectorType>::VectorizePatch(const itk:
 }
 
 template <typename TMatrixType, typename TVectorType>
+template <typename TPixel, unsigned int PixelDimension>
+TVectorType PatchProjection<TMatrixType, TVectorType>::VectorizePatch(const itk::Image<itk::CovariantVector<TPixel, PixelDimension>, 2>* const image,
+                                  const itk::ImageRegion<2>& region)
+{
+  typedef itk::Image<itk::CovariantVector<TPixel, PixelDimension>, 2> ImageType;
+
+  TVectorType vectorized =
+       TVectorType::Zero(region.GetNumberOfPixels());
+
+  itk::ImageRegionConstIterator<ImageType> imageIterator(image, region);
+
+  unsigned int pixelCounter = 0;
+  while(!imageIterator.IsAtEnd())
+    {
+    for(unsigned int i = 0; i < ImageType::PixelType::Dimension; ++i)
+      {
+      vectorized[pixelCounter * ImageType::PixelType::Dimension + i] = imageIterator.Get()[i];
+      pixelCounter++;
+      ++imageIterator;
+    }
+    }
+  return vectorized;
+}
+
+template <typename TMatrixType, typename TVectorType>
 template <typename TPixel>
 TVectorType PatchProjection<TMatrixType, TVectorType>::VectorizePatch(const itk::Image<TPixel, 2>* const image,
                                                                       const itk::ImageRegion<2>& region)

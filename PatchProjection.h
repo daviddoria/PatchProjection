@@ -36,6 +36,11 @@ public:
   static TVectorType VectorizePatch(const itk::VectorImage<TPixel, 2>* const image,
                                     const itk::ImageRegion<2>& region);
 
+  /** Convert a region of a vector image to a vector.*/
+  template <typename TPixel, unsigned int PixelDimension>
+  static TVectorType VectorizePatch(const itk::Image<itk::CovariantVector<TPixel, PixelDimension>, 2>* const image,
+                                    const itk::ImageRegion<2>& region);
+
   /** Convert a region of a scalar image to a vector.*/
   template <typename TPixel>
   static TVectorType VectorizePatch(const itk::Image<TPixel, 2>* const image, const itk::ImageRegion<2>& region);
