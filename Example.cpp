@@ -4,9 +4,9 @@
 #include "PatchProjection.h"
 
 // Submodules
-#include "PatchProjection/ITKHelpers/Helpers/Helpers.h"
-#include "PatchProjection/ITKHelpers/ITKHelpers.h"
-#include "PatchProjection/EigenHelpers/EigenHelpers.h"
+#include "Helpers.h"
+#include "ITKHelpers.h"
+#include "EigenHelpers.h"
 
 int main(int argc, char* argv[])
 {
