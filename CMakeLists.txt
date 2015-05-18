@@ -2,36 +2,40 @@ cmake_minimum_required(VERSION 2.6)
 
 Project(PatchProjection)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=gnu++0x")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=gnu++11")
 
-include_directories(/media/portable/src/Eigen)
+add_subdirectory(CMakeHelpers)
 
+#### Eigen ####
+# Tell CMake to also look in the source directory to find some .cmake files
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_MODULE_PATH})
+# Set the CMake variable to the value of the environment variable.
+# If the build is absolutely fresh, this will be the case if the CMake variable EIGEN3_INCLUDE_DIR is not set.
+if(NOT EIGEN3_INCLUDE_DIR)
+set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
+message("Set EIGEN3_INCLUDE_DIR to ${EIGEN3_INCLUDE_DIR} from environment variable of the same name.")
+else()
+message("EIGEN3_INCLUDE_DIR is ${EIGEN3_INCLUDE_DIR}")
+endif()
+if(NOT EIGEN3_FOUND)
+FIND_PACKAGE(Eigen3 REQUIRED) #requires FindEigen3.cmake to be in the source directory
+include_directories(${EIGEN3_INCLUDE_DIR})
+endif()
+
+
+#### ITK ####
 FIND_PACKAGE(ITK REQUIRED ITKCommon ITKIOImageBase ITKIOPNG ITKIOMeta
 ITKImageIntensity ITKImageFeature ITKMathematicalMorphology ITKBinaryMathematicalMorphology ITKDistanceMap)
 INCLUDE(${ITK_USE_FILE})
 
+#### VTK ####
 FIND_PACKAGE(VTK REQUIRED)
 INCLUDE(${VTK_USE_FILE})
 
-if(NOT TARGET ITKHelpers)
-  add_subdirectory(ITKHelpers)
-  include_directories(${ITKHelpers_includes})
-  set(PatchProjection_includes ${PatchProjection_includes} ${ITKHelpers_includes})
-  set(PatchProjection_libraries ${PatchProjection_libraries} ITKHelpers)
-endif()
+UseSubmodule(ITKHelpers PatchProjection)
+UseSubmodule(EigenHelpers PatchProjection)
 
-if(NOT TARGET EigenHelpers)
-  add_subdirectory(EigenHelpers)
-  include_directories(${EigenHelpers_includes})
-  set(PatchProjection_includes ${PatchProjection_includes} ${EigenHelpers_includes})
-  set(PatchProjection_libraries ${PatchProjection_libraries} EigenHelpers)
-endif()
-
-if(NOT ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
-  set(PatchProjection_includes ${PatchProjection_includes} ${CMAKE_CURRENT_SOURCE_DIR} PARENT_SCOPE)
-  set(PatchProjection_libraries ${PatchProjection_libraries} ${ITK_LIBRARIES} ${VTK_LIBRARIES} PARENT_SCOPE)
-  message("PatchProjection submodule used from ${CMAKE_CURRENT_SOURCE_DIR}")
-endif()
+CreateSubmodule(PatchProjection)
 
 SET(PatchProjection_BuildExample OFF CACHE BOOL "PatchProjection_BuildExample")
 if(PatchProjection_BuildExample)

@@ -513,7 +513,7 @@ TMatrixType PatchProjection<TMatrixType, TVectorType>::SortedEigenDecomposition(
   }
 
   // Sort the eigenvalues from largest magnitude to smallest
-  std::vector<ParallelSort::IndexedValue<float> > sorted = ParallelSort::ParallelSortDescending<float>(eigenvalueMagnitudes);
+  ParallelSort<float>::IndexedVectorType sorted = ParallelSort<float>::ParallelSortDescending(eigenvalueMagnitudes);
 
   // Write eigenvalue magnitudes to file (for plotting later)
 //   //std::vector<float> sortedEigenvalues(sorted.size());
